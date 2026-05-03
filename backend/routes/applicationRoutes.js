@@ -5,7 +5,7 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import { allowRoles } from "../middleware/roleMiddleware.js";
 
 // Configure multer for file uploads
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ dest: process.env.VERCEL ? "/tmp/uploads" : "uploads/" });
 
 const router = express.Router();
 

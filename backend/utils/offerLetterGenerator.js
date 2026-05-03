@@ -9,11 +9,12 @@ export const generateOfferLetter = async (candidateName, jobRole, companyName) =
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument({ margin: 50 });
         const fileName = `Offer_Letter_${candidateName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-        const filePath = path.join('uploads', fileName);
+        const uploadDir = process.env.VERCEL ? "/tmp/uploads" : "uploads";
+        const filePath = path.join(uploadDir, fileName);
 
         // Ensure uploads directory exists
-        if (!fs.existsSync('uploads')) {
-            fs.mkdirSync('uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
         }
 
         const stream = fs.createWriteStream(filePath);

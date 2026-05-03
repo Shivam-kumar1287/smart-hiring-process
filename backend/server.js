@@ -12,8 +12,14 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import mcqRoutes from "./routes/mcqRoutes.js";
 import interviewRoutes from "./routes/interviewRoutes.js";
+import fs from "fs";
 
 const app = express();
+
+// Ensure uploads folder exists locally
+if (!process.env.VERCEL && !fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
 
 app.use(cors({
   origin: "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
