@@ -12,7 +12,9 @@ const db = mysql.createPool({
   port: process.env.MYSQLPORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: process.env.MYSQLHOST ? { rejectUnauthorized: false } : false // Often required for remote connections
+  connectTimeout: 10000, // 10 seconds
+  acquireTimeout: 10000, // 10 seconds
+  ssl: process.env.MYSQLHOST ? { rejectUnauthorized: false } : false
 });
 
 export default db;
