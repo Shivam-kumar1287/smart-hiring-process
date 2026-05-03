@@ -15,13 +15,20 @@ import interviewRoutes from "./routes/interviewRoutes.js";
 
 const app = express();
 
-// 1. Manual CORS middleware to guarantee headers even on errors
+app.use(cors({
+  origin: "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Fallback manual headers for safety
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Origin", "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
   
-  // Handle preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
