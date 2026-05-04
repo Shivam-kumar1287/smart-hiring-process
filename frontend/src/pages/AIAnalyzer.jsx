@@ -1,5 +1,5 @@
 import { useState } from "react";
-import api from "./api";
+import api from "../utils/api";
 import Navigation from "../components/Navigation";
 
 export default function AIAnalyzer() {

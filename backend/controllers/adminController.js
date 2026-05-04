@@ -1,8 +1,9 @@
-import db from "../models/database.js";
+import User from "../models/userModel.js";
+import Job from "../models/jobModel.js";
 
 export const getStats = async (req, res) => {
-  const [[users]] = await db.query("SELECT COUNT(*) total FROM users");
-  const [[jobs]] = await db.query("SELECT COUNT(*) total FROM jobs");
+  const userCount = await User.countDocuments();
+  const jobCount = await Job.countDocuments();
 
-  res.json({ users: users.total, jobs: jobs.total });
-};
+  res.json({ users: userCount, jobs: jobCount });
+};

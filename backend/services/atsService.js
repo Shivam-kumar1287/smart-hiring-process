@@ -8,11 +8,11 @@ dotenv.config();
 export const getATSScore = async (filePath, jd) => {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    
+
     // Read file and convert to Uint8Array for the new pdf-parse version
     const fileBuffer = fs.readFileSync(filePath);
     const uint8Array = new Uint8Array(fileBuffer);
-    
+
     // Initialize PDFParse and extract text
     const pdf = new PDFParse(uint8Array);
     const data = await pdf.getText();
@@ -38,10 +38,10 @@ export const getATSScore = async (filePath, jd) => {
     });
 
     const aiResponse = res.choices[0].message.content;
-    
+
     const scoreMatch = aiResponse.match(/Score:\s*(\d+)/i);
     const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-    
+
     const reasonMatch = aiResponse.match(/Reasoning:\s*([\s\S]+?)(?=\nSuggestions:|$)/i);
     const explanation = reasonMatch ? reasonMatch[1].trim() : "Analysis provided.";
 
@@ -58,7 +58,7 @@ export const getATSScore = async (filePath, jd) => {
 export const analyzeResumeDetailed = async (filePath, jd) => {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    
+
     const fileBuffer = fs.readFileSync(filePath);
     const uint8Array = new Uint8Array(fileBuffer);
     const pdf = new PDFParse(uint8Array);

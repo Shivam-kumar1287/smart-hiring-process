@@ -5,6 +5,7 @@ import path from 'path';
 /**
  * ✅ GENERATE OFFER LETTER PDF
  */
+
 export const generateOfferLetter = async (candidateName, jobRole, companyName) => {
     return new Promise((resolve, reject) => {
         const doc = new PDFDocument({ margin: 50 });

@@ -13,16 +13,33 @@ import healthRoutes from "./routes/healthRoutes.js";
 import mcqRoutes from "./routes/mcqRoutes.js";
 import interviewRoutes from "./routes/interviewRoutes.js";
 import fs from "fs";
+import connectDB from "./models/database.js";
 
 const app = express();
+
+// Connect to Database
+connectDB();
 
 // Ensure uploads folder exists locally
 if (!process.env.VERCEL && !fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
 
+const allowedOrigins = [
+  "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000"
+];
+
 app.use(cors({
-  origin: "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -30,7 +47,10 @@ app.use(cors({
 
 // Fallback manual headers for safety
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app");
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
@@ -44,6 +64,8 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
+
+app.get("/api/test", (req, res) => res.json({ message: "API is working" }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/jobs", jobRoutes);

@@ -1,4 +1,4 @@
-import db from "../models/database.js";
+import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateOTP } from "../utils/otp.js";
@@ -17,17 +17,26 @@ export const register = async (req, res) => {
     const otp_expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
     try {
-      await db.query(
-        "INSERT INTO users (name,email,password,role,is_verified,otp,otp_expires) VALUES (?,?,?,?,?,?,?)",
-        [name, email, hash, role || "user", false, otp, otp_expires]
-      );
+      await User.create({
+        name,
+        email,
+        password: hash,
+        role: role || "user",
+        is_verified: false,
+        otp,
+        otp_expires
+      });
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
+      if (error.code === 11000) { // MongoDB duplicate key error
         // If email exists but not verified, update OTP
-        const [existing] = await db.query("SELECT is_verified FROM users WHERE email=?", [email]);
-        if (existing.length > 0 && !existing[0].is_verified) {
-          await db.query("UPDATE users SET name=?, password=?, role=?, otp=?, otp_expires=? WHERE email=?", 
-                         [name, hash, role || "user", otp, otp_expires, email]);
+        const existing = await User.findOne({ email });
+        if (existing && !existing.is_verified) {
+          existing.name = name;
+          existing.password = hash;
+          existing.role = role || "user";
+          existing.otp = otp;
+          existing.otp_expires = otp_expires;
+          await existing.save();
         } else {
           return res.status(400).json("Email already exists and is verified");
         }
@@ -47,7 +56,17 @@ export const register = async (req, res) => {
       </div>
     `;
 
-    await sendMail(email, "Registration OTP - Smart Job Tracker", "", emailHtml);
+    const emailSent = await sendMail(email, "Registration OTP - Smart Job Tracker", "", emailHtml);
+
+    if (!emailSent) {
+      console.log("OTP for debugging:", otp);
+      return res.status(500).json({ 
+        message: "Failed to send OTP email. Please check server configuration.", 
+        requiresOtp: true, 
+        email,
+        debugOtp: otp // Only for development, remove in production
+      });
+    }
 
     res.json({ message: "OTP sent to your email. Please verify to complete registration.", requiresOtp: true, email });
   } catch (error) {
@@ -62,17 +81,19 @@ export const verifyRegisterOTP = async (req, res) => {
 
     if (!email || !otp) return res.status(400).json("Email and OTP required");
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email=?", [email]);
-    if (!rows.length) return res.status(404).json("User not found");
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json("User not found");
 
-    const user = rows[0];
     if (user.is_verified) return res.status(400).json("User already verified");
 
     if (user.otp !== otp || new Date() > new Date(user.otp_expires)) {
       return res.status(400).json("Invalid or expired OTP");
     }
 
-    await db.query("UPDATE users SET is_verified=?, otp=NULL, otp_expires=NULL WHERE email=?", [true, email]);
+    user.is_verified = true;
+    user.otp = null;
+    user.otp_expires = null;
+    await user.save();
     
     res.json({ message: "Registration successful. You can now log in." });
   } catch (error) {
@@ -90,24 +111,23 @@ export const login = async (req, res) => {
       return res.status(400).json("All fields are required");
     }
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email=?", [email]);
-    if (!rows.length) return res.status(404).json("User not found");
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json("User not found");
 
-    const user = rows[0];
     if (!user.is_verified) return res.status(403).json("Please verify your email first.");
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json("Wrong password");
 
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { id: user._id, role: user.role },
       process.env.JWT_SECRET
     );
 
     res.json({ 
       token, 
       user: {
-        id: user.id,
+        id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -125,13 +145,16 @@ export const forgotPassword = async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json("Email is required");
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email=?", [email]);
-    if (!rows.length) return res.status(404).json("User not found");
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json("User not found");
 
     const otp = generateOTP();
     const otp_expires = new Date(Date.now() + 10 * 60 * 1000);
 
-    await db.query("UPDATE users SET otp=?, otp_expires=? WHERE email=?", [otp, otp_expires, email]);
+    user.otp = otp;
+    user.otp_expires = otp_expires;
+    await user.save();
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <p>Dear User,</p>
@@ -143,7 +166,15 @@ export const forgotPassword = async (req, res) => {
       </div>
     `;
 
-    await sendMail(email, "Password Reset OTP - Smart Job Tracker", "", emailHtml);
+    const emailSent = await sendMail(email, "Password Reset OTP - Smart Job Tracker", "", emailHtml);
+
+    if (!emailSent) {
+      console.log("Password reset OTP for debugging:", otp);
+      return res.status(500).json({ 
+        message: "Failed to send OTP email. Please check server configuration.", 
+        debugOtp: otp // Only for development, remove in production
+      });
+    }
 
     res.json({ message: "OTP sent to your email." });
   } catch (error) {
@@ -157,16 +188,18 @@ export const resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) return res.status(400).json("All fields required");
 
-    const [rows] = await db.query("SELECT * FROM users WHERE email=?", [email]);
-    if (!rows.length) return res.status(404).json("User not found");
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json("User not found");
 
-    const user = rows[0];
     if (user.otp !== otp || new Date() > new Date(user.otp_expires)) {
       return res.status(400).json("Invalid or expired OTP");
     }
 
     const hash = await bcrypt.hash(newPassword, 10);
-    await db.query("UPDATE users SET password=?, otp=NULL, otp_expires=NULL WHERE email=?", [hash, email]);
+    user.password = hash;
+    user.otp = null;
+    user.otp_expires = null;
+    await user.save();
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
@@ -177,16 +210,17 @@ export const resetPassword = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const [rows] = await db.query(
-      "SELECT id, name, email, role, phone, location, bio, skills, social_links, profile_image, created_at FROM users WHERE id=?",
-      [req.user.id]
-    );
+    const user = await User.findById(req.user.id);
     
-    if (rows.length === 0) {
+    if (!user) {
       return res.status(404).json("User not found");
     }
     
-    res.json(rows[0]);
+    // Map _id to id if necessary for frontend, though User.findById(id) works.
+    const userObj = user.toObject();
+    userObj.id = userObj._id;
+    
+    res.json(userObj);
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).json("Error fetching profile");
@@ -197,10 +231,14 @@ export const updateProfile = async (req, res) => {
   try {
     const { name, phone, location, bio, skills, social_links } = req.body;
     
-    await db.query(
-      "UPDATE users SET name=?, phone=?, location=?, bio=?, skills=?, social_links=? WHERE id=?",
-      [name, phone, location, bio, skills, JSON.stringify(social_links), req.user.id]
-    );
+    await User.findByIdAndUpdate(req.user.id, {
+      name,
+      phone,
+      location,
+      bio,
+      skills,
+      social_links: typeof social_links === 'string' ? social_links : JSON.stringify(social_links)
+    });
     
     res.json("Profile updated successfully");
   } catch (error) {
@@ -217,10 +255,7 @@ export const updateProfileImage = async (req, res) => {
 
     const imagePath = req.file.path;
     
-    await db.query(
-      "UPDATE users SET profile_image=? WHERE id=?",
-      [imagePath, req.user.id]
-    );
+    await User.findByIdAndUpdate(req.user.id, { profile_image: imagePath });
 
     res.json({ message: "Profile image updated successfully", imagePath });
   } catch (error) {

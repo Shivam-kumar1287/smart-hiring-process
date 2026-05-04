@@ -1,13 +1,13 @@
-import db from '../models/database.js';
+import mongoose from 'mongoose';
 
 export const healthCheck = async (req, res) => {
   try {
-    // Check database connection
-    const [rows] = await db.query('SELECT 1 as status');
+    // Check database connection state
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     
     res.json({
-      status: 'healthy',
-      database: 'connected',
+      status: dbStatus === 'connected' ? 'healthy' : 'unhealthy',
+      database: dbStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
     });
@@ -20,3 +20,4 @@ export const healthCheck = async (req, res) => {
     });
   }
 };
+
