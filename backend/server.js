@@ -17,9 +17,6 @@ import connectDB from "./models/database.js";
 
 const app = express();
 
-// Connect to Database
-connectDB();
-
 // Ensure uploads folder exists locally
 if (!process.env.VERCEL && !fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
@@ -32,9 +29,16 @@ const allowedOrigins = [
   "http://localhost:3000"
 ];
 
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.startsWith("https://") && origin.endsWith(".vercel.app")) return true;
+  return false;
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -48,7 +52,7 @@ app.use(cors({
 // Fallback manual headers for safety
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  if (origin && isOriginAllowed(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -64,6 +68,20 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
+
+// Ensure DB is connected before API routes (critical on Vercel serverless)
+app.use(async (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("Database unavailable:", err);
+    res.status(503).json({ error: "Database unavailable", message: err.message });
+  }
+});
 
 app.get("/api/test", (req, res) => res.json({ message: "API is working" }));
 
@@ -86,13 +104,16 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Vercel Fluid / serverless: longer timeout for PDF + LLM routes
+export const config = {
+  maxDuration: 60,
+};
+
 // Export the app for Vercel serverless functions
 export default app;
 
-// Only listen if not in a production/serverless environment
-if (process.env.NODE_ENV !== 'production') {
+// Listen only when running as a normal Node process (not Vercel serverless)
+if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () =>
-    console.log(`Server running on port ${PORT}`)
-  );
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
