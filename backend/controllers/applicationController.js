@@ -2,9 +2,7 @@ import Application from "../models/applicationModel.js";
 import Job from "../models/jobModel.js";
 import User from "../models/userModel.js";
 import mongoose from "mongoose";
-import { getATSScore, analyzeResumeDetailed } from "../services/atsService.js";
 import { sendMail } from "../utils/mailer.js";
-import { generateOfferLetter } from "../utils/offerLetterGenerator.js";
 
 /**
  * ✅ APPLY JOB (USER)
@@ -49,6 +47,7 @@ export const applyJob = async (req, res) => {
     try {
       // Calculate CRI score based on resume and job description
       if (resume_path) {
+        const { getATSScore } = await import("../services/atsService.js");
         const { score, explanation, suggestions } = await getATSScore(resume_path, job.description);
         
         // Update application with ATS result
@@ -447,6 +446,7 @@ export const updateApplicationRound = async (req, res) => {
     if (parseInt(round) >= parseInt(application.job_id.rounds)) {
       if (!application.is_offer_sent) {
         try {
+          const { generateOfferLetter } = await import("../utils/offerLetterGenerator.js");
           const filePath = await generateOfferLetter(application.user_id.name, application.job_id.job_role, application.job_id.company_name);
           
           application.is_offer_sent = true;
@@ -505,6 +505,7 @@ export const analyzeResume = async (req, res) => {
       return res.status(400).json("Resume and Job Description are required");
     }
 
+    const { analyzeResumeDetailed } = await import("../services/atsService.js");
     const analysis = await analyzeResumeDetailed(resume_path, jd);
     res.json(analysis);
   } catch (error) {

@@ -69,8 +69,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
 
-// Ensure DB is connected before API routes (critical on Vercel serverless)
-app.use(async (req, res, next) => {
+// Browser probes must not hit MongoDB or heavy imports (Vercel default ~10s budget on Hobby).
+app.get("/", (req, res) => {
+  res.json({ ok: true, service: "smart-job-tracker-api" });
+});
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+const api = express.Router();
+
+api.use(async (req, res, next) => {
   if (req.method === "OPTIONS") {
     return next();
   }
@@ -83,16 +90,17 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.get("/api/test", (req, res) => res.json({ message: "API is working" }));
+api.get("/test", (req, res) => res.json({ message: "API is working" }));
+api.use("/auth", authRoutes);
+api.use("/jobs", jobRoutes);
+api.use("/applications", applicationRoutes);
+api.use("/admin", adminRoutes);
+api.use("/analytics", analyticsRoutes);
+api.use("/mcq", mcqRoutes);
+api.use("/interview", interviewRoutes);
+api.use("/", healthRoutes);
 
-app.use("/api/auth", authRoutes);
-app.use("/api/jobs", jobRoutes);
-app.use("/api/applications", applicationRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/mcq", mcqRoutes);
-app.use("/api/interview", interviewRoutes);
-app.use("/api", healthRoutes);
+app.use("/api", api);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -103,11 +111,6 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'production' ? null : err.stack
   });
 });
-
-// Vercel Fluid / serverless: longer timeout for PDF + LLM routes
-export const config = {
-  maxDuration: 60,
-};
 
 // Export the app for Vercel serverless functions
 export default app;
