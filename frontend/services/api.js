@@ -1,5 +1,5 @@
 import axios from "axios";
 
 export default axios.create({
-  baseURL: "https://newmern-smart-job-tracker.vercel.app/api"
+  baseURL: "process.env.VITE_API_URL/api"
 });
