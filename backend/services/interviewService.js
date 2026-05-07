@@ -3,9 +3,16 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+let _groq;
+function getGroq() {
+  if (!_groq) {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY environment variable is not set");
+    }
+    _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return _groq;
+}
 
 export const evaluateAnswer = async ({ question, userAnswer, jobRole, difficulty }) => {
   try {
