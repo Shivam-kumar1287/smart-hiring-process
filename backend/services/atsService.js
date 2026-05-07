@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import fs from "fs";
 import dotenv from "dotenv";
-import { PDFParse } from 'pdf-parse';
+import pdfParse from "pdf-parse";
 
 dotenv.config();
 
@@ -9,13 +9,9 @@ export const getATSScore = async (filePath, jd) => {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    // Read file and convert to Uint8Array for the new pdf-parse version
+    // Read file as buffer and pass to standard pdfParse
     const fileBuffer = fs.readFileSync(filePath);
-    const uint8Array = new Uint8Array(fileBuffer);
-
-    // Initialize PDFParse and extract text
-    const pdf = new PDFParse(uint8Array);
-    const data = await pdf.getText();
+    const data = await pdfParse(fileBuffer);
     const extractedText = data.text || "";
 
     if (!extractedText) {
@@ -60,9 +56,7 @@ export const analyzeResumeDetailed = async (filePath, jd) => {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     const fileBuffer = fs.readFileSync(filePath);
-    const uint8Array = new Uint8Array(fileBuffer);
-    const pdf = new PDFParse(uint8Array);
-    const data = await pdf.getText();
+    const data = await pdfParse(fileBuffer);
     const extractedText = data.text || "";
 
     if (!extractedText) {
