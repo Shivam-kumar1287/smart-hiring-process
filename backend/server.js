@@ -32,7 +32,7 @@ const allowedOrigins = [
 function isOriginAllowed(origin) {
   if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
-  if (origin.startsWith("https://") && origin.endsWith(".vercel.app")) return true;
+  if (origin.startsWith("https://")) return true;
   return false;
 }
 
@@ -58,7 +58,7 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
-  
+
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
