@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import fs from "fs";
 import dotenv from "dotenv";
-import pdfParse from "pdf-parse";
+import pdfParse from "./pdfHelper.cjs";
 
 dotenv.config();
 
