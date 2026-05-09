@@ -51,16 +51,20 @@ export const getATSScore = async (filePath, jd) => {
   }
 };
 
-export const analyzeResumeDetailed = async (filePath, jd) => {
+export const analyzeResumeDetailed = async (filePath, jd, resumeText = "") => {
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    const fileBuffer = fs.readFileSync(filePath);
-    const data = await pdfParse(fileBuffer);
-    const extractedText = data.text || "";
+    let extractedText = resumeText;
+    
+    if (!extractedText && filePath) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const data = await pdfParse(fileBuffer);
+      extractedText = data.text || "";
+    }
 
     if (!extractedText) {
-      throw new Error("Could not extract text from PDF");
+      throw new Error("Could not get text from Resume");
     }
 
     const res = await groq.chat.completions.create({

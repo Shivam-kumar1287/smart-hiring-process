@@ -498,15 +498,15 @@ export const updateApplicationRound = async (req, res) => {
 
 export const analyzeResume = async (req, res) => {
   try {
-    const { jd } = req.body;
+    const { jd, resume_text } = req.body;
     const resume_path = req.file ? req.file.path : null;
 
-    if (!resume_path || !jd) {
-      return res.status(400).json("Resume and Job Description are required");
+    if ((!resume_path && !resume_text) || !jd) {
+      return res.status(400).json("Resume (file or text) and Job Description are required");
     }
 
     const { analyzeResumeDetailed } = await import("../services/atsService.js");
-    const analysis = await analyzeResumeDetailed(resume_path, jd);
+    const analysis = await analyzeResumeDetailed(resume_path, jd, resume_text);
     res.json(analysis);
   } catch (error) {
     console.error("Error analyzing resume:", error);
