@@ -19,12 +19,26 @@ export default function Profile() {
   const fetchProfile = async () => {
     try {
       const res = await api.get("/auth/profile");
-      setUser(res.data);
+      const userData = res.data;
+      
+      // Parse social_links if it's a string
+      let socialLinks = [];
+      if (userData.social_links) {
+        try {
+          socialLinks = typeof userData.social_links === 'string' 
+            ? JSON.parse(userData.social_links) 
+            : userData.social_links;
+        } catch (e) {
+          socialLinks = [];
+        }
+      }
+      
+      setUser(userData);
       setFormData({
-        name: res.data.name || "", email: res.data.email || "",
-        phone: res.data.phone || "", location: res.data.location || "",
-        bio: res.data.bio || "", skills: res.data.skills || "",
-        social_links: res.data.social_links || []
+        name: userData.name || "", email: userData.email || "",
+        phone: userData.phone || "", location: userData.location || "",
+        bio: userData.bio || "", skills: userData.skills || "",
+        social_links: socialLinks
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -262,7 +276,11 @@ export default function Profile() {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Connect</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                      {(user.social_links || []).length > 0 ? user.social_links.map((link, i) => (
+                      {(() => {
+        const socialLinks = user?.social_links;
+        const linksArray = Array.isArray(socialLinks) ? socialLinks : 
+                         (typeof socialLinks === 'string' ? JSON.parse(socialLinks || '[]') : []);
+        return linksArray.length > 0 ? linksArray.map((link, i) => (
                         <a 
                           key={i} 
                           href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 
@@ -280,7 +298,8 @@ export default function Profile() {
                         </a>
                       )) : (
                         <p className="text-gray-400 italic text-sm col-span-2">No social links added.</p>
-                      )}
+                      )
+        })()}
                     </div>
                   </div>
                 </div>
