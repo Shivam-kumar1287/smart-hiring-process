@@ -39,9 +39,7 @@ export default function AIAnalyzer() {
     formData.append("jd", jd);
 
     try {
-      const res = await api.post("/applications/analyze", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.post("/applications/analyze", formData);
       setAnalysis(res.data);
     } catch (err) {
       setError(err.response?.data || "Failed to analyze resume. Please try again.");
