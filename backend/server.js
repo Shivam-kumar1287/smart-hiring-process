@@ -1,123 +1,193 @@
 import dotenv from "dotenv";
+
 dotenv.config();
 
+
+
 import express from "express";
+
 import cors from "cors";
 
+
+
 import authRoutes from "./routes/authRoutes.js";
+
 import jobRoutes from "./routes/jobRoutes.js";
+
 import applicationRoutes from "./routes/applicationRoutes.js";
+
 import adminRoutes from "./routes/adminRoutes.js";
+
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+
 import healthRoutes from "./routes/healthRoutes.js";
+
 import mcqRoutes from "./routes/mcqRoutes.js";
+
 import interviewRoutes from "./routes/interviewRoutes.js";
+
 import fs from "fs";
+
 import connectDB from "./models/database.js";
+
+
 
 const app = express();
 
+
+
+// Connect to Database
+
+connectDB();
+
+
+
 // Ensure uploads folder exists locally
+
 if (!process.env.VERCEL && !fs.existsSync("uploads")) {
+
   fs.mkdirSync("uploads");
+
 }
+
+
 
 const allowedOrigins = [
+
   "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
-  "https://newmern-smart-job-tracker-nrk3.vercel.app",
+
   "http://localhost:5173",
-  "http://localhost:5174",
+
   "http://localhost:3000"
+
 ];
 
-function isOriginAllowed(origin) {
-  if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
-  if (origin.startsWith("https://")) return true;
-  return false;
-}
+
 
 app.use(cors({
+
   origin: (origin, callback) => {
-    if (isOriginAllowed(origin)) {
+
+    if (!origin || allowedOrigins.includes(origin)) {
+
       callback(null, true);
+
     } else {
+
       callback(new Error("Not allowed by CORS"));
+
     }
+
   },
+
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+
   allowedHeaders: ["Content-Type", "Authorization"],
+
   credentials: true
+
 }));
 
+
+
 // Fallback manual headers for safety
+
 app.use((req, res, next) => {
+
   const origin = req.headers.origin;
-  if (origin && isOriginAllowed(origin)) {
+
+  if (allowedOrigins.includes(origin)) {
+
     res.header("Access-Control-Allow-Origin", origin);
+
   }
+
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+
   res.header("Access-Control-Allow-Credentials", "true");
 
+  
+
   if (req.method === "OPTIONS") {
+
     return res.status(200).end();
+
   }
+
   next();
+
 });
+
+
 
 app.use(express.json());
+
 app.use(express.urlencoded({ extended: true }));
+
 app.use("/uploads", express.static("uploads"));
 
-// Browser probes must not hit MongoDB or heavy imports (Vercel default ~10s budget on Hobby).
-app.get("/", (req, res) => {
-  res.json({ ok: true, service: "smart-job-tracker-api" });
-});
-app.get("/favicon.ico", (req, res) => res.status(204).end());
 
-const api = express.Router();
 
-api.use(async (req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return next();
-  }
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    console.error("Database unavailable:", err);
-    res.status(503).json({ error: "Database unavailable", message: err.message });
-  }
-});
+app.get("/api/test", (req, res) => res.json({ message: "API is working" }));
 
-api.get("/test", (req, res) => res.json({ message: "API is working" }));
-api.use("/auth", authRoutes);
-api.use("/jobs", jobRoutes);
-api.use("/applications", applicationRoutes);
-api.use("/admin", adminRoutes);
-api.use("/analytics", analyticsRoutes);
-api.use("/mcq", mcqRoutes);
-api.use("/interview", interviewRoutes);
-api.use("/", healthRoutes);
 
-app.use("/api", api);
+
+app.use("/api/auth", authRoutes);
+
+app.use("/api/jobs", jobRoutes);
+
+app.use("/api/applications", applicationRoutes);
+
+app.use("/api/admin", adminRoutes);
+
+app.use("/api/analytics", analyticsRoutes);
+
+app.use("/api/mcq", mcqRoutes);
+
+app.use("/api/interview", interviewRoutes);
+
+app.use("/api", healthRoutes);
+
+
 
 // Global Error Handler
+
 app.use((err, req, res, next) => {
+
   console.error("GLOBAL ERROR:", err);
+
   res.status(500).json({
+
     error: "Internal Server Error",
+
     message: err.message,
+
     stack: process.env.NODE_ENV === 'production' ? null : err.stack
+
   });
+
 });
 
+
+
 // Export the app for Vercel serverless functions
+
 export default app;
 
-// Listen only when running as a normal Node process (not Vercel serverless)
-if (!process.env.VERCEL) {
+
+
+// Only listen if not in a production/serverless environment
+
+if (process.env.NODE_ENV !== 'production') {
+
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+  app.listen(PORT, () =>
+
+    console.log(`Server running on port ${PORT}`)
+
+  );
+
 }

@@ -4,8 +4,6 @@ import Navigation from "../components/Navigation";
 
 export default function AIAnalyzer() {
   const [resume, setResume] = useState(null);
-  const [resumeText, setResumeText] = useState("");
-  const [inputType, setInputType] = useState("file");
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
@@ -17,12 +15,8 @@ export default function AIAnalyzer() {
   };
 
   const handleAnalyze = async () => {
-    if ((inputType === "file" && !resume) || (inputType === "text" && !resumeText.trim())) {
-      setError("Please provide a resume.");
-      return;
-    }
-    if (!jd.trim()) {
-      setError("Please provide a job description.");
+    if (!resume || !jd.trim()) {
+      setError("Please upload a resume and provide a job description.");
       return;
     }
 
@@ -31,15 +25,13 @@ export default function AIAnalyzer() {
     setError("");
 
     const formData = new FormData();
-    if (inputType === "file") {
-      formData.append("resume", resume);
-    } else {
-      formData.append("resume_text", resumeText);
-    }
+    formData.append("resume", resume);
     formData.append("jd", jd);
 
     try {
-      const res = await api.post("/applications/analyze", formData);
+      const res = await api.post("/applications/analyze", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setAnalysis(res.data);
     } catch (err) {
       setError(err.response?.data || "Failed to analyze resume. Please try again.");
@@ -65,71 +57,46 @@ export default function AIAnalyzer() {
           {/* Input Section */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center">
-              <div className="w-full flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm font-black">1</span>
-                  Provide Resume
-                </h2>
-                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
-                  <button 
-                    onClick={() => setInputType("file")}
-                    className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${inputType === "file" ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
-                  >
-                    PDF
-                  </button>
-                  <button 
-                    onClick={() => setInputType("text")}
-                    className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${inputType === "text" ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
-                  >
-                    Text
-                  </button>
-                </div>
-              </div>
+              <h2 className="text-xl font-bold mb-6 w-full flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm font-black">1</span>
+                Upload Resume
+              </h2>
               
-              {inputType === "file" ? (
-                <div className="w-full relative group">
-                  <input 
-                    type="file" 
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="hidden" 
-                    id="resume-upload" 
-                  />
-                  <label 
-                    htmlFor="resume-upload"
-                    className={`flex flex-col items-center justify-center w-full min-h-[180px] border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
-                      resume 
-                        ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10" 
-                        : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500 dark:hover:border-blue-400"
-                    }`}
-                  >
-                    {resume ? (
-                      <div className="text-center p-4">
-                        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                        </div>
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{resume.name}</p>
-                        <p className="text-xs text-gray-500 mt-1">Ready for analysis</p>
+              <div className="w-full relative group">
+                <input 
+                  type="file" 
+                  accept=".pdf"
+                  onChange={handleFileChange}
+                  className="hidden" 
+                  id="resume-upload" 
+                />
+                <label 
+                  htmlFor="resume-upload"
+                  className={`flex flex-col items-center justify-center w-full min-h-[180px] border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                    resume 
+                      ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10" 
+                      : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500 dark:hover:border-blue-400"
+                  }`}
+                >
+                  {resume ? (
+                    <div className="text-center p-4">
+                      <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                       </div>
-                    ) : (
-                      <div className="text-center p-4">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                        </div>
-                        <p className="font-bold text-gray-800 dark:text-gray-200">Drop PDF here</p>
-                        <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                      <p className="font-bold text-gray-800 dark:text-gray-200">{resume.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">Ready for analysis</p>
+                    </div>
+                  ) : (
+                    <div className="text-center p-4">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                       </div>
-                    )}
-                  </label>
-                </div>
-              ) : (
-                <textarea
-                  placeholder="Paste your resume text here..."
-                  value={resumeText}
-                  onChange={(e) => setResumeText(e.target.value)}
-                  className="w-full min-h-[180px] px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-all placeholder:text-gray-400 text-sm leading-relaxed"
-                ></textarea>
-              )}
+                      <p className="font-bold text-gray-800 dark:text-gray-200">Drop PDF here</p>
+                      <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                    </div>
+                  )}
+                </label>
+              </div>
             </div>
 
             <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
@@ -274,7 +241,7 @@ export default function AIAnalyzer() {
 
                 <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800 text-center">
                   <button 
-                    onClick={() => { setAnalysis(null); setResume(null); setResumeText(""); setJd(""); }}
+                    onClick={() => { setAnalysis(null); setResume(null); setJd(""); }}
                     className="text-sm font-bold text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                   >
                     Start New Analysis

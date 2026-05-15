@@ -1,7 +1,7 @@
 import { useState } from "react";
+import api from "../utils/api";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
-import api from "../utils/api.js";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,8 +13,7 @@ export default function Login() {
   const login = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", form, { headers: { "Content-Type": "application/json" }, });
-      console.log(res.data);
+      const res = await api.post("/auth/login", form);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userRole", res.data.user.role);
 

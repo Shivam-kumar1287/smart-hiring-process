@@ -31,37 +31,9 @@ export default function Register() {
         navigate("/");
       }
     } catch (err) {
-      console.error("Full error object:", err);
-      console.error("Response data:", err.response?.data);
-      
-      const errorData = err.response?.data;
-      console.log("Checking errorData:", errorData);
-      console.log("Has debugOtp:", !!errorData?.debugOtp);
-      
-      if (errorData?.debugOtp) {
-        const otpMessage = `Email service not configured. Use this OTP: ${errorData.debugOtp}`;
-        console.log("Should show OTP alert:", otpMessage);
-        
-        // Use setTimeout to ensure alert shows after any pending operations
-        setTimeout(() => {
-          alert(otpMessage);
-          setRequiresOtp(true);
-        }, 100);
-      } else {
-        // Handle different error response formats
-        let errorMessage = "Registration failed";
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData?.message) {
-          errorMessage = errorData.message;
-        } else if (errorData?.error) {
-          errorMessage = errorData.error;
-        } else if (err.message) {
-          errorMessage = err.message;
-        }
-        console.log("Should show error alert:", errorMessage);
-        alert(errorMessage);
-      }
+      const errorMessage = err.response?.data || "Registration failed";
+      alert(errorMessage);
+      console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
