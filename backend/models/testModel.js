@@ -19,8 +19,10 @@ const testSchema = new mongoose.Schema({
     }],
     points: { type: Number, default: 1 }
   }],
+  show_marks: { type: Boolean, default: false },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
+
 
 const Test = mongoose.model("Test", testSchema);
 export default Test;

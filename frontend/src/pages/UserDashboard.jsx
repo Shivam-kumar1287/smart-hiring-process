@@ -34,21 +34,83 @@ export default function UserDashboard() {
   const [interviewAnswers, setInterviewAnswers] = useState([]);
   const [interviewEvaluation, setInterviewEvaluation] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [tabSwitches, setTabSwitches] = useState(0);
+
+  // Anti-cheat for Practice Mode
+  useEffect(() => {
+    const handleActivity = () => {
+      if ((mcqData.length > 0 || interviewQuestions.length > 0) && !showResults && !interviewEvaluation) {
+        setTabSwitches(prev => {
+          const newVal = prev + 1;
+          if (newVal >= 2) {
+            alert("Practice session terminated due to multiple tab switches!");
+            setMcqData([]);
+            setInterviewQuestions([]);
+            return 0;
+          }
+          alert(`Warning: Tab switch detected! Practice session will be cancelled if you switch again. (${newVal}/2)`);
+          return newVal;
+        });
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) handleActivity();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleActivity);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleActivity);
+    };
+  }, [mcqData, interviewQuestions, showResults, interviewEvaluation]);
 
   useEffect(() => {
     fetchUserProfile();
     fetchApplications();
     loadSavedJobs();
     fetchAssignedTests();
+    fetchTestHistory();
   }, []);
 
   const [assignedTests, setAssignedTests] = useState([]);
+  const [testHistory, setTestHistory] = useState([]);
+
+  const fetchTestHistory = async () => {
+    try {
+      const res = await api.get("/applications/my");
+      let allSubmissions = [];
+      for (const app of res.data) {
+        try {
+          // We need an endpoint to get all submissions for a user or search by app
+          // Let's assume we can fetch by test results if we have the IDs
+          // For now, let's just get the list of tests and see if there are submissions
+          const testsRes = await api.get(`/tests/job/${app.job_id._id || app.job_id}`);
+          for (const test of testsRes.data) {
+            try {
+              const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
+              if (subRes.data && subRes.data.status === 'submitted') {
+                allSubmissions.push({
+                  ...subRes.data,
+                  test_title: test.title,
+                  show_marks: test.show_marks
+                });
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+      setTestHistory(allSubmissions);
+    } catch (err) {}
+  };
 
   const fetchAssignedTests = async () => {
     try {
       // We need an endpoint to get tests for the logged in user
       const res = await api.get("/applications/my");
-      const jobIds = [...new Set(res.data.map(app => app.job_id))];
+      const jobIds = [...new Set(res.data.map(app => app.job_id._id || app.job_id))];
       
       let allTests = [];
       for (const jobId of jobIds) {
@@ -56,11 +118,32 @@ export default function UserDashboard() {
         allTests = [...allTests, ...testRes.data];
       }
       
-      // Filter tests by current round of application
-      const activeTests = allTests.filter(test => {
-        const app = res.data.find(a => a.job_id === test.job_id);
-        return app && app.current_round === test.round_number.toString() && app.status === 'accepted';
-      });
+      // Filter tests by current round of application and check if already submitted
+      const activeTests = [];
+      for (const test of allTests) {
+        const app = res.data.find(a => {
+          const aJobId = a.job_id._id || a.job_id;
+          const tJobId = test.job_id._id || test.job_id;
+          return aJobId.toString() === tJobId.toString();
+        });
+        
+        const isCorrectRound = app && (
+          app.current_round.toString() === test.round_number.toString() ||
+          (app.current_round === "0" && test.round_number === 1)
+        );
+
+        if (app && app.status === 'accepted' && isCorrectRound) {
+          // Check if already submitted
+          try {
+            const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
+            if (!subRes.data || (subRes.data.status !== 'submitted' && subRes.data.status !== 'cancelled')) {
+              activeTests.push(test);
+            }
+          } catch (e) {
+            activeTests.push(test);
+          }
+        }
+      }
 
       setAssignedTests(activeTests);
     } catch (err) {}
@@ -103,14 +186,22 @@ export default function UserDashboard() {
 
   const loadSavedJobs = async () => {
     const savedJobIds = JSON.parse(localStorage.getItem('savedJobs') || '[]');
-    setStats(prev => ({ ...prev, savedJobs: savedJobIds.length }));
+    const validIdRegex = /^[0-9a-fA-F]{24}$/;
+    const filteredIds = savedJobIds.filter(id => typeof id === 'string' && validIdRegex.test(id));
+    
+    setStats(prev => ({ ...prev, savedJobs: filteredIds.length }));
+    
+    if (filteredIds.length !== savedJobIds.length) {
+      console.log("Filtering out invalid job IDs from saved list");
+      localStorage.setItem('savedJobs', JSON.stringify(filteredIds));
+    }
 
-    if (savedJobIds.length === 0) {
+    if (filteredIds.length === 0) {
       setSavedJobs([]);
       return;
     }
 
-    const jobPromises = savedJobIds.map(async (jobId) => {
+    const jobPromises = filteredIds.map(async (jobId) => {
       try {
         const res = await api.get(`/jobs/${jobId}`);
         return { ...res.data, saved: true };
@@ -149,6 +240,8 @@ export default function UserDashboard() {
     setMcqData([]);
     setUserAnswers({});
     setShowResults(false);
+    setTabSwitches(0);
+
     try {
       const res = await api.post("/mcq/generate", mcqForm);
       setMcqData(res.data);
@@ -166,6 +259,8 @@ export default function UserDashboard() {
     setInterviewAnswers([]);
     setCurrentQuestionIndex(0);
     setInterviewEvaluation(null);
+    setTabSwitches(0);
+
     try {
       const res = await api.post("/interview/generate", mcqForm);
       setInterviewQuestions(res.data);
@@ -301,7 +396,12 @@ export default function UserDashboard() {
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-sm"
                 }`}
             >
-              {tab}
+              <span className="relative">
+                {tab}
+                {tab === "overview" && assignedTests.length > 0 && (
+                  <span className="absolute -top-2 -right-3 w-2 h-2 bg-rose-500 rounded-full border border-white dark:border-gray-900 animate-pulse"></span>
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -370,8 +470,53 @@ export default function UserDashboard() {
                   </div>
                 </div>
               )}
+
+              {testHistory.length > 0 && (
+                <div className="mt-12">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-6m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Completed Assessments ({testHistory.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {testHistory.map(sub => (
+                      <div key={sub._id} className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm transition-all hover:shadow-md">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="text-lg font-bold">{sub.test_title}</h4>
+                            <p className="text-xs text-gray-500">Submitted on {new Date(sub.submitted_at).toLocaleDateString()}</p>
+                          </div>
+                          <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase">Completed</span>
+                        </div>
+                        
+                        {sub.show_marks ? (
+                          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Score</p>
+                              <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">{sub.total_score} / {sub.max_score}</p>
+                            </div>
+                            <button 
+                              onClick={() => navigate(`/test-results/${sub._id}`)}
+                              className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                              Results are hidden by HR
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
 
           {activeTab === "applications" && (
             <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -395,7 +540,7 @@ export default function UserDashboard() {
                           <p className="text-gray-600 dark:text-gray-400 font-medium mb-3">{app.company_name}</p>
                           <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
                             <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            Applied on {new Date(app.created_at).toLocaleDateString()}
+                            Applied on {new Date(app.createdAt || app.created_at).toLocaleDateString()}
                           </div>
 
                           <div className="flex items-center gap-4 mb-6">
@@ -523,7 +668,7 @@ export default function UserDashboard() {
                       </button>
                     </div>
                     <div className="space-y-3">
-                      {(profileForm.social_links || []).map((link, index) => (
+                      {(Array.isArray(profileForm.social_links) ? profileForm.social_links : []).map((link, index) => (
                         <div key={index} className="flex gap-2 items-center animate-fadeIn">
                           <input
                             placeholder="Platform"
@@ -594,9 +739,9 @@ export default function UserDashboard() {
                       </div>
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                      <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Social Links</p>
+                      <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Social Links</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {(user?.social_links || []).length > 0 ? user.social_links.map((link, i) => (
+                        {Array.isArray(user?.social_links) && user.social_links.length > 0 ? user.social_links.map((link, i) => (
                           <a
                             key={i}
                             href={link.url.startsWith('http') ? link.url : `https://${link.url}`}

@@ -2,12 +2,19 @@ import Test from "../models/testModel.js";
 import TestSubmission from "../models/testSubmissionModel.js";
 import Application from "../models/applicationModel.js";
 import User from "../models/userModel.js";
+import Job from "../models/jobModel.js";
 import { sendMail } from "../utils/mailer.js";
+import mongoose from "mongoose";
 import { evaluateTheoryAnswer, evaluateCodeAnswer } from "../services/testEvaluationService.js";
 
 export const createTest = async (req, res) => {
   try {
-    const { job_id, round_number, title, description, duration, start_time, end_time, questions } = req.body;
+    const { job_id, round_number, title, description, duration, start_time, end_time, show_marks, questions } = req.body;
+
+    const existingTest = await Test.findOne({ job_id, round_number });
+    if (existingTest) {
+      return res.status(400).json({ error: `A test for Round ${round_number} already exists for this job.` });
+    }
 
     const test = await Test.create({
       job_id,
@@ -17,9 +24,11 @@ export const createTest = async (req, res) => {
       duration,
       start_time,
       end_time,
+      show_marks,
       questions,
       created_by: req.user.id
     });
+
 
     // Notify accepted candidates for this round
     const applications = await Application.find({ 
@@ -85,6 +94,18 @@ export const startTest = async (req, res) => {
 
     if (!submission) {
       const app = await Application.findOne({ user_id, job_id: test.job_id });
+      
+      if (!app || app.status !== 'accepted') {
+        return res.status(403).json({ error: "Only accepted candidates can take this test" });
+      }
+
+      const isCorrectRound = (app.current_round.toString() === test.round_number.toString()) || 
+                             (app.current_round.toString() === "0" && test.round_number === 1);
+
+      if (!isCorrectRound) {
+        return res.status(403).json({ error: "You are not in the correct round for this test" });
+      }
+
       submission = await TestSubmission.create({
         test_id,
         user_id,
@@ -98,7 +119,9 @@ export const startTest = async (req, res) => {
       test: {
         title: test.title,
         duration: test.duration,
+        show_marks: test.show_marks,
         questions: test.questions.map(q => ({
+
           _id: q._id,
           type: q.type,
           question: q.question,
@@ -118,11 +141,12 @@ export const updateTabSwitch = async (req, res) => {
     const submission = await TestSubmission.findById(submissionId);
     
     submission.tab_switches += 1;
-    if (submission.tab_switches >= 3) {
+    if (submission.tab_switches >= 2) {
       submission.status = 'cancelled';
       await submission.save();
-      return res.json({ status: 'cancelled', message: "Test terminated due to multiple tab switches" });
+      return res.json({ terminated: true, message: "Test terminated due to multiple tab switches" });
     }
+
 
     await submission.save();
     res.json({ tab_switches: submission.tab_switches });
@@ -213,9 +237,45 @@ export const findSubmission = async (req, res) => {
   try {
     const { test_id, user_id } = req.query;
     const submission = await TestSubmission.findOne({ test_id, user_id });
-    if (!submission) return res.status(404).json({ error: "No submission found" });
+    if (!submission) return res.json(null);
     res.json(submission);
   } catch (error) {
     res.status(500).json({ error: "Error searching submission" });
+  }
+};
+
+export const getHRSubmissions = async (req, res) => {
+  try {
+    const hrId = req.user.id;
+    
+    // Find all jobs by this HR
+    const jobs = await Job.find({ created_by: hrId });
+    const jobIds = jobs.map(j => j._id);
+
+    // Find all tests for these jobs
+    const tests = await Test.find({ job_id: { $in: jobIds } });
+    const testIds = tests.map(t => t._id);
+
+    // Find all submissions for these tests
+    const submissions = await TestSubmission.find({ test_id: { $in: testIds } })
+      .populate('user_id', 'name email profile_image')
+      .populate('test_id', 'title round_number')
+      .sort({ submitted_at: -1 });
+
+    res.json(submissions);
+  } catch (error) {
+    console.error("Error fetching HR submissions:", error);
+    res.status(500).json({ error: "Failed to fetch submissions" });
+  }
+};
+export const deleteTest = async (req, res) => {
+  try {
+    const { test_id } = req.params;
+    await Test.findByIdAndDelete(test_id);
+    // Optionally delete all submissions for this test too
+    await TestSubmission.deleteMany({ test_id });
+    res.json({ message: "Test deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete test" });
   }
 };

@@ -56,12 +56,12 @@ export default function TakeTest() {
       if (!submissionId || loading) return;
       try {
         const res = await api.put(`/tests/tab-switch/${submissionId}`);
-        if (res.data.status === 'cancelled') {
+        if (res.data.terminated) {
           alert("Test terminated due to multiple tab switches!");
           navigate("/user-dashboard");
         } else {
           setTabSwitches(res.data.tab_switches);
-          alert(`Warning: Tab switch detected! (${res.data.tab_switches}/3)`);
+          alert(`Warning: Tab switch detected! Test will be cancelled if you switch again. (Strike 1/2)`);
         }
       } catch (err) {
         console.error(err);
@@ -104,9 +104,14 @@ export default function TakeTest() {
     setSubmitting(true);
     try {
       const res = await api.post(`/tests/finalize/${submissionId}`);
-      alert(`Test submitted! Your score: ${res.data.total_score}`);
+      if (test.show_marks) {
+        alert(`Test submitted! Your total score: ${res.data.total_score}`);
+      } else {
+        alert("Test submitted successfully! Your results will be reviewed by HR.");
+      }
       navigate("/user-dashboard");
     } catch (err) {
+
       alert("Final submission failed");
     } finally {
       setSubmitting(false);
@@ -139,7 +144,7 @@ export default function TakeTest() {
           </div>
           <div className="text-center">
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Warnings</p>
-            <p className="text-2xl font-black text-amber-500">{tabSwitches}/3</p>
+            <p className="text-2xl font-black text-amber-500">{tabSwitches}/2</p>
           </div>
         </div>
       </header>

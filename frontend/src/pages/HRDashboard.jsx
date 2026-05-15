@@ -23,6 +23,8 @@ export default function HRDashboard() {
   });
   const [jobSearch, setJobSearch] = useState("");
   const [appSearch, setAppSearch] = useState("");
+  const [jobTests, setJobTests] = useState({}); // { jobId: [tests] }
+  const [testSubmissions, setTestSubmissions] = useState([]);
 
   useEffect(() => {
     fetchJobs();
@@ -33,7 +35,7 @@ export default function HRDashboard() {
     try {
       const res = await api.get("/jobs/my");
       setJobs(res.data);
-      calculateStats(res.data, applications);
+      await calculateStats(res.data, applications);
     } catch (err) {}
   };
 
@@ -41,11 +43,11 @@ export default function HRDashboard() {
     try {
       const res = await api.get("/applications");
       setApplications(res.data);
-      calculateStats(jobs, res.data);
+      await calculateStats(jobs, res.data);
     } catch (err) {}
   };
 
-  const calculateStats = (jobsData, applicationsData) => {
+  const calculateStats = async (jobsData, applicationsData) => {
     const s = {
       totalJobs: jobsData.length,
       totalApplications: applicationsData.length,
@@ -55,6 +57,23 @@ export default function HRDashboard() {
       activeJobs: jobsData.length
     };
     setStats(s);
+    
+    // Fetch tests for all jobs
+    try {
+      const subRes = await api.get("/tests/submissions");
+      setTestSubmissions(subRes.data);
+      
+      const scores = subRes.data.filter(s => s.status === 'submitted').map(s => (s.total_score / s.max_score) * 100);
+      const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0;
+      setStats(prev => ({ ...prev, avgScore: avg }));
+    } catch (e) {}
+
+    for (const job of jobsData) {
+      try {
+        const res = await api.get(`/tests/job/${job._id}`);
+        setJobTests(prev => ({ ...prev, [job._id]: res.data }));
+      } catch (e) {}
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -123,6 +142,34 @@ export default function HRDashboard() {
       setProcessing(false);
     }
   };
+  const handlePromote = async (appId) => {
+    if (processing) return;
+    setProcessing(true);
+    try {
+      await api.put(`/applications/${appId}/promote`);
+      await fetchApplications();
+      alert("Candidate promoted to the next round!");
+    } catch (err) {
+      alert("Error promoting candidate");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRejectAssessment = async (appId) => {
+    if (!window.confirm("Are you sure you want to reject this candidate based on their assessment?")) return;
+    if (processing) return;
+    setProcessing(true);
+    try {
+      await api.put(`/applications/${appId}/reject-assessment`);
+      await fetchApplications();
+      alert("Candidate rejected.");
+    } catch (err) {
+      alert("Error rejecting candidate");
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -149,7 +196,7 @@ export default function HRDashboard() {
 
         {/* Navigation Tabs */}
         <div className="flex overflow-x-auto hide-scrollbar space-x-2 p-1 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 mb-8 max-w-fit">
-          {["overview", "jobs", "applications", "members"].map((tab) => (
+          {["overview", "jobs", "applications", "members", "reports"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -159,9 +206,10 @@ export default function HRDashboard() {
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
             >
-              {tab === "jobs" ? `Manage Jobs (${jobs.length})` : tab === "applications" ? `Applicants (${applications.length})` : tab === "members" ? `Members (${applications.length})` : tab}
+              {tab === "jobs" ? `Manage Jobs (${jobs.length})` : tab === "applications" ? `Applicants (${applications.length})` : tab === "members" ? `Members (${applications.length})` : tab === "reports" ? "Assessment Reports" : tab}
             </button>
           ))}
+
         </div>
 
         {/* Content Area */}
@@ -273,6 +321,47 @@ export default function HRDashboard() {
                           <button onClick={() => handleDelete(job.id)} className="px-4 py-2 bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 rounded-xl text-sm font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">Delete</button>
                         </div>
                       </div>
+
+                      {/* Test Management Section */}
+                      {jobTests[job._id]?.length > 0 && (
+                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 animate-fadeIn">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                            Active Assessments
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            {jobTests[job._id].sort((a,b) => a.round_number - b.round_number).map(test => (
+                              <div key={test._id} className="flex items-center gap-3 bg-white dark:bg-gray-900 px-4 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm group hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
+                                <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center font-black text-xs">
+                                  {test.round_number}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-gray-900 dark:text-white">{test.title}</p>
+                                  <p className="text-[9px] text-gray-500 font-medium">{new Date(test.start_time).toLocaleDateString()} - {new Date(test.end_time).toLocaleDateString()}</p>
+                                </div>
+                                <button 
+                                  onClick={async () => {
+                                    if(confirm(`Are you sure you want to delete the test for Round ${test.round_number}? This will also delete all candidate submissions for this test.`)) {
+                                      try {
+                                        await api.delete(`/tests/${test._id}`);
+                                        // Refresh tests for this job
+                                        const res = await api.get(`/tests/job/${job._id}`);
+                                        setJobTests(prev => ({ ...prev, [job._id]: res.data }));
+                                      } catch (e) {
+                                        alert("Failed to delete test");
+                                      }
+                                    }
+                                  }}
+                                  className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                  title="Delete Assessment"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -313,7 +402,7 @@ export default function HRDashboard() {
                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{app.job_role}</h3>
                                <p className="text-purple-600 dark:text-purple-400 font-medium mb-1">Applicant: {app.user_name} ({app.user_email})</p>
                                <div className="flex flex-wrap gap-2 mb-4">
-                                  {(app.social_links || []).map((link, i) => (
+                                  {(Array.isArray(app.social_links) ? app.social_links : []).map((link, i) => (
                                     <a 
                                       key={i} 
                                       href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 
@@ -431,7 +520,9 @@ export default function HRDashboard() {
                                           alert("Candidate has not started the test yet.");
                                         }
                                       } else {
-                                        alert("No test assigned for this round yet.");
+                                        if(confirm("No test assigned for this round. Would you like to create one now?")) {
+                                          navigate(`/create-test/${app.job_id}`);
+                                        }
                                       }
                                     } catch (err) {
                                       alert("Error checking test status");
@@ -556,7 +647,107 @@ export default function HRDashboard() {
               )}
             </div>
           )}
+          {activeTab === "reports" && (
+            <div className="space-y-8 animate-fadeInUp">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                  <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Assessment Analytics
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-6 bg-indigo-50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                    <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase">Avg. Assessment Score</p>
+                    <p className="text-3xl font-black text-indigo-900 dark:text-white mt-1">{stats.avgScore || 0}%</p>
+                  </div>
+                  <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase">Total Completions</p>
+                    <p className="text-3xl font-black text-emerald-900 dark:text-white mt-1">{testSubmissions.filter(s => s.status === 'submitted').length}</p>
+                  </div>
+                  <div className="p-6 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/30">
+                    <p className="text-sm font-bold text-purple-600 dark:text-purple-400 uppercase">Active Tests</p>
+                    <p className="text-3xl font-black text-purple-900 dark:text-white mt-1">{jobs.length}</p>
+                  </div>
+                </div>
+              </div>
 
+              <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-800">
+                <h3 className="text-xl font-bold mb-6">Recent Test Submissions</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-xs font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                        <th className="pb-4">Candidate</th>
+                        <th className="pb-4">Job Role</th>
+                        <th className="pb-4">Round</th>
+                        <th className="pb-4">Score</th>
+                        <th className="pb-4">Status</th>
+                        <th className="pb-4">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                      {testSubmissions.slice(0, 10).map(sub => (
+                        <tr key={sub._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center font-bold text-blue-600 text-xs uppercase">
+                                {sub.user_id?.name?.charAt(0)}
+                              </div>
+                              <span className="font-bold">{sub.user_id?.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 text-gray-500">{sub.test_id?.title}</td>
+                          <td className="py-4 text-gray-500">Round {sub.test_id?.round_number}</td>
+                          <td className="py-4">
+                            {sub.status === 'submitted' ? (
+                              <span className="font-black text-blue-600">{((sub.total_score / sub.max_score) * 100).toFixed(1)}%</span>
+                            ) : (
+                              <span className="text-gray-400">--</span>
+                            )}
+                          </td>
+                          <td className="py-4">
+                            {sub.status === 'submitted' ? (
+                              <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">Completed</span>
+                            ) : sub.status === 'cancelled' ? (
+                              <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">Terminated</span>
+                            ) : (
+                              <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-bold">InProgress</span>
+                            )}
+                          </td>
+                          <td className="py-4">
+                            {sub.status === 'submitted' ? (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => handlePromote(sub.application_id)}
+                                  disabled={processing}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors"
+                                >
+                                  Promote
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectAssessment(sub.application_id)}
+                                  disabled={processing}
+                                  className="px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white text-[10px] font-bold rounded-lg transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <button className="text-blue-600 font-bold text-xs hover:underline">View Details</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {testSubmissions.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="py-20 text-center text-gray-400 italic">No submissions yet</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -612,7 +803,7 @@ export default function HRDashboard() {
                 <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Professional Links</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(selectedApplicant.social_links || []).length > 0 ? selectedApplicant.social_links.map((link, i) => (
+                    {Array.isArray(selectedApplicant.social_links) && selectedApplicant.social_links.length > 0 ? selectedApplicant.social_links.map((link, i) => (
                       <a 
                         key={i} 
                         href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 

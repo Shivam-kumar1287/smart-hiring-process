@@ -59,10 +59,12 @@ if (!process.env.VERCEL && !fs.existsSync("uploads")) {
 
 const allowedOrigins = [
   "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
+  "https://newmern-smart-job-tracker-nrk3.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000"
 ];
+
 
 
 

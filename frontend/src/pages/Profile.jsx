@@ -151,7 +151,7 @@ export default function Profile() {
                     </div>
                   )}
                   <div className="flex items-center text-gray-600 dark:text-gray-400 text-sm pt-4 border-t border-gray-100 dark:border-gray-800">
-                    Member since {user.created_at ? new Date(user.created_at).toLocaleDateString() : "Unknown"}
+                    Member since {new Date(user.createdAt || user.created_at).toLocaleDateString() !== "Invalid Date" ? new Date(user.createdAt || user.created_at).toLocaleDateString() : "Recently"}
                   </div>
                 </div>
               </div>
@@ -265,13 +265,14 @@ export default function Profile() {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Skills & Expertise</h3>
                     <div className="flex flex-wrap gap-2.5 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 min-h-[100px]">
-                      {user.skills ? user.skills.split(',').map((skill, index) => (
-                        <span key={index} className="px-4 py-2 bg-white dark:bg-gray-900 border border-purple-100 dark:border-purple-900/50 text-purple-700 dark:text-purple-300 rounded-xl text-sm font-bold shadow-sm">
-                          {skill.trim()}
-                        </span>
-                      )) : (
-                        <span className="text-gray-400 italic flex items-center h-full">No skills listed.</span>
-                      )}
+                      {user.skills && user.skills.split(',').filter(s => s.trim() !== "").length > 0 ? 
+                        user.skills.split(',').filter(s => s.trim() !== "").map((skill, index) => (
+                          <span key={index} className="px-4 py-2 bg-white dark:bg-gray-900 border border-purple-100 dark:border-purple-900/50 text-purple-700 dark:text-purple-300 rounded-xl text-sm font-bold shadow-sm">
+                            {skill.trim()}
+                          </span>
+                        )) : (
+                          <span className="text-gray-400 italic flex items-center h-full">No specific skills listed. Use 'Edit Profile' to add some!</span>
+                        )}
                     </div>
                   </div>
                   <div>

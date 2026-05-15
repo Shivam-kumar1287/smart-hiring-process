@@ -212,19 +212,90 @@ export const acceptApplication = async (req, res) => {
     if (application.status !== 'pending') return res.status(400).json("Application is already " + application.status);
 
     application.status = 'accepted';
+    application.current_round = '1';
     await application.save();
+
+    // Check if there are any active tests for this round
+    const Test = mongoose.model("Test");
+    const test = await Test.findOne({ 
+      job_id: application.job_id._id, 
+      round_number: parseInt(application.current_round || 0) 
+    });
+
+    let testInfo = "";
+    if (test) {
+      testInfo = `\n\nYou have a pending assessment for this round: "${test.title}".\nPlease log in to your dashboard to complete it before ${new Date(test.end_time).toLocaleString()}.`;
+    }
 
     // Send acceptance email
     await sendMail(
       application.user_id.email,
-      "Application Approved! \uD83C\uDF89",
-      `Congratulations ${application.user_id.name}!\n\nYour application for the ${application.job_id.job_role} position at ${application.job_id.company_name} has been approved!\n\nOur AI-driven HR evaluation determined that your resume strongly meets the required criteria, achieving an excellent CRI Match Score of ${application.ats_score || "N/A"}%.\n\nWe are excited about your qualifications and will be in touch shortly regarding the interview rounds.\n\nBest regards,\n${application.job_id.company_name} HR Team`
+      "Application Approved! 🥳",
+      `Congratulations ${application.user_id.name}!\n\nYour application for the ${application.job_id.job_role} position at ${application.job_id.company_name} has been approved!\n\nOur AI-driven HR evaluation determined that your resume strongly meets the required criteria, achieving an excellent CRI Match Score of ${application.ats_score || "N/A"}%.\n${testInfo}\n\nWe are excited about your qualifications and will be in touch shortly regarding the next steps.\n\nBest regards,\n${application.job_id.company_name} HR Team`
     );
+
 
     res.json("Application accepted successfully");
   } catch (error) {
     console.error("Error accepting application:", error);
     res.status(500).json("Error accepting application");
+  }
+};
+
+export const promoteCandidate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const application = await Application.findById(id).populate('job_id user_id');
+    if (!application) return res.status(404).json({ error: "Application not found" });
+
+    // Increment round
+    const nextRound = parseInt(application.current_round || 0) + 1;
+    application.current_round = nextRound.toString();
+    await application.save();
+
+    // Notify candidate about next round
+    const Test = mongoose.model("Test");
+    const test = await Test.findOne({ job_id: application.job_id._id, round_number: nextRound });
+    
+    let message = `Congratulations! You have been promoted to Round ${nextRound} for the position of ${application.job_id.job_role}.`;
+    if (test) {
+      message += `\n\nA new assessment "${test.title}" is now available on your dashboard.`;
+    }
+
+    try {
+      await sendMail(
+        application.user_id.email,
+        `Promoted to Round ${nextRound} - ${application.job_id.company_name}`,
+        message
+      );
+    } catch (e) { console.error("Mail failed", e); }
+
+    res.json({ message: `Candidate promoted to Round ${nextRound}`, current_round: application.current_round });
+  } catch (error) {
+    res.status(500).json({ error: "Promotion failed" });
+  }
+};
+
+export const rejectFromAssessment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const application = await Application.findById(id).populate('job_id user_id');
+    if (!application) return res.status(404).json({ error: "Application not found" });
+
+    application.status = 'rejected';
+    await application.save();
+
+    try {
+      await sendMail(
+        application.user_id.email,
+        `Application Update - ${application.job_id.company_name}`,
+        `We regret to inform you that we will not be moving forward with your application for the ${application.job_id.job_role} position after reviewing your recent assessment results.`
+      );
+    } catch (e) { console.error("Mail failed", e); }
+
+    res.json({ message: "Application rejected based on assessment" });
+  } catch (error) {
+    res.status(500).json({ error: "Rejection failed" });
   }
 };
 

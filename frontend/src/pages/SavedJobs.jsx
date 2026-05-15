@@ -15,14 +15,20 @@ export default function SavedJobs() {
   const fetchSavedJobs = async () => {
     try {
       const savedJobIds = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+      const validIdRegex = /^[0-9a-fA-F]{24}$/;
+      const filteredIds = savedJobIds.filter(id => typeof id === 'string' && validIdRegex.test(id));
       
-      if (savedJobIds.length === 0) {
+      if (filteredIds.length !== savedJobIds.length) {
+        localStorage.setItem('savedJobs', JSON.stringify(filteredIds));
+      }
+
+      if (filteredIds.length === 0) {
         setSavedJobs([]);
         setLoading(false);
         return;
       }
 
-      const jobPromises = savedJobIds.map(async (jobId) => {
+      const jobPromises = filteredIds.map(async (jobId) => {
         try {
           const res = await api.get(`/jobs/${jobId}`);
           return { ...res.data, saved: true };

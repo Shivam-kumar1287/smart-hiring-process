@@ -14,8 +14,10 @@ export default function CreateTest() {
     round_number: 1,
     start_time: "",
     end_time: "",
+    show_marks: false,
     questions: []
   });
+
 
   const addQuestion = (type) => {
     const newQuestion = {
@@ -108,7 +110,21 @@ export default function CreateTest() {
               />
             </div>
           </div>
+
+          <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+            <input 
+              type="checkbox" 
+              id="show_marks"
+              className="w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+              checked={testData.show_marks}
+              onChange={(e) => setTestData({...testData, show_marks: e.target.checked})}
+            />
+            <label htmlFor="show_marks" className="text-sm font-bold text-blue-900">
+              Allow candidates to see their marks/results immediately after submission
+            </label>
+          </div>
         </div>
+
 
         <div className="space-y-6">
           <h2 className="text-xl font-bold">Questions ({testData.questions.length})</h2>
