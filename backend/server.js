@@ -26,6 +26,9 @@ import mcqRoutes from "./routes/mcqRoutes.js";
 
 import interviewRoutes from "./routes/interviewRoutes.js";
 
+import testRoutes from "./routes/testRoutes.js";
+
+
 import fs from "fs";
 
 import connectDB from "./models/database.js";
@@ -37,8 +40,10 @@ const app = express();
 
 
 // Connect to Database
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+}
 
-connectDB();
 
 
 
@@ -53,14 +58,12 @@ if (!process.env.VERCEL && !fs.existsSync("uploads")) {
 
 
 const allowedOrigins = [
-
   "https://frontend-neldjpkng-shivam-kumars-projects-dc8509b3.vercel.app",
-
   "http://localhost:5173",
-
+  "http://localhost:5174",
   "http://localhost:3000"
-
 ];
+
 
 
 
@@ -90,35 +93,14 @@ app.use(cors({
 
 
 
-// Fallback manual headers for safety
-
+// Manual headers check for OPTIONS preflight and fallback (kept minimal)
 app.use((req, res, next) => {
-
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-
-    res.header("Access-Control-Allow-Origin", origin);
-
-  }
-
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  
-
   if (req.method === "OPTIONS") {
-
     return res.status(200).end();
-
   }
-
   next();
-
 });
+
 
 
 
@@ -147,6 +129,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/mcq", mcqRoutes);
 
 app.use("/api/interview", interviewRoutes);
+
+app.use("/api/tests", testRoutes);
+
 
 app.use("/api", healthRoutes);
 

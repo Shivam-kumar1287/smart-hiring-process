@@ -260,6 +260,12 @@ export default function HRDashboard() {
                               View Applicants
                             </button>
                           )}
+                          <button 
+                            onClick={() => navigate(`/create-test/${job.id}`)}
+                            className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                          >
+                            Add Test
+                          </button>
                           <button onClick={() => handleToggleStatus(job.id)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${job.status === 'closed' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40'}`}>
                             {job.status === 'closed' ? 'Reopen Job' : 'Close Job'}
                           </button>
@@ -408,6 +414,36 @@ export default function HRDashboard() {
                                 </p>
                               </div>
                             )}
+
+                            {/* View Test Results Button */}
+                            {app.status === 'accepted' && (
+                              <div className="mt-4 flex gap-3">
+                                <button 
+                                  onClick={async () => {
+                                    try {
+                                      const testsRes = await api.get(`/tests/job/${app.job_id}`);
+                                      const currentTest = testsRes.data.find(t => t.round_number.toString() === app.current_round);
+                                      if (currentTest) {
+                                        try {
+                                          const subRes = await api.get(`/tests/find?test_id=${currentTest._id}&user_id=${app.user_id}`);
+                                          navigate(`/test-results/${subRes.data._id}`);
+                                        } catch (e) {
+                                          alert("Candidate has not started the test yet.");
+                                        }
+                                      } else {
+                                        alert("No test assigned for this round yet.");
+                                      }
+                                    } catch (err) {
+                                      alert("Error checking test status");
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                                >
+                                  View Assessment Results
+                                </button>
+                              </div>
+                            )}
+
 
                             {app.resume_path && (
                               <div className="mt-3 flex items-center gap-4">

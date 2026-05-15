@@ -39,7 +39,32 @@ export default function UserDashboard() {
     fetchUserProfile();
     fetchApplications();
     loadSavedJobs();
+    fetchAssignedTests();
   }, []);
+
+  const [assignedTests, setAssignedTests] = useState([]);
+
+  const fetchAssignedTests = async () => {
+    try {
+      // We need an endpoint to get tests for the logged in user
+      const res = await api.get("/applications/my");
+      const jobIds = [...new Set(res.data.map(app => app.job_id))];
+      
+      let allTests = [];
+      for (const jobId of jobIds) {
+        const testRes = await api.get(`/tests/job/${jobId}`);
+        allTests = [...allTests, ...testRes.data];
+      }
+      
+      // Filter tests by current round of application
+      const activeTests = allTests.filter(test => {
+        const app = res.data.find(a => a.job_id === test.job_id);
+        return app && app.current_round === test.round_number.toString() && app.status === 'accepted';
+      });
+
+      setAssignedTests(activeTests);
+    } catch (err) {}
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -306,6 +331,45 @@ export default function UserDashboard() {
                   </div>
                 ))}
               </div>
+
+              {assignedTests.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                    Pending Assessments ({assignedTests.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {assignedTests.map(test => (
+                      <div key={test._id} className="bg-white dark:bg-gray-900 p-6 rounded-3xl border-2 border-blue-100 dark:border-blue-900/30 shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4">
+                          <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest">
+                            Round {test.round_number}
+                          </span>
+                        </div>
+                        <h4 className="text-xl font-black mb-1">{test.title}</h4>
+                        <p className="text-sm text-gray-500 mb-4">{test.duration} Minutes • {test.questions.length} Questions</p>
+                        
+                        <div className="flex items-center gap-3 mb-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                          <div className="w-10 h-10 bg-white dark:bg-gray-900 rounded-xl flex items-center justify-center shadow-sm">
+                            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">Deadline</p>
+                            <p className="text-xs font-bold">{new Date(test.end_time).toLocaleString()}</p>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => navigate(`/take-test/${test._id}`)}
+                          className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
+                        >
+                          Start Assessment
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

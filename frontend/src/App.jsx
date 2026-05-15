@@ -10,6 +10,9 @@ import Profile from "./pages/Profile";
 import SavedJobs from "./pages/SavedJobs";
 import Features from "./pages/Features";
 import AIAnalyzer from "./pages/AIAnalyzer";
+import CreateTest from "./pages/CreateTest";
+import TakeTest from "./pages/TakeTest";
+import TestResults from "./pages/TestResults";
 
 function App() {
   return (
@@ -26,7 +29,11 @@ function App() {
         <Route path="/hr-dashboard" element={<HRDashboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/saved-jobs" element={<SavedJobs />} />
+        <Route path="/create-test/:jobId" element={<CreateTest />} />
+        <Route path="/take-test/:testId" element={<TakeTest />} />
+        <Route path="/test-results/:submissionId" element={<TestResults />} />
       </Routes>
+
     </Router>
   );
 }
