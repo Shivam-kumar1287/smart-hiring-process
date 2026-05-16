@@ -21,6 +21,7 @@ export default function MeetingRoom() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
+  const dcRef = useRef(null);
   const pollingRef = useRef(null);
   const localStreamRef = useRef(null);
 
@@ -82,6 +83,22 @@ export default function MeetingRoom() {
 
       // Add local tracks to WebRTC
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      if (isCaller) {
+        const dc = pc.createDataChannel("chat");
+        dcRef.current = dc;
+        dc.onmessage = (e) => {
+          setChat(prev => [...prev, { sender: meeting.candidate_id.name, text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+        };
+      } else {
+        pc.ondatachannel = (event) => {
+          const dc = event.channel;
+          dcRef.current = dc;
+          dc.onmessage = (e) => {
+            setChat(prev => [...prev, { sender: meeting.hr_id.name, text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+          };
+        };
+      }
 
       // Handle remote tracks
       pc.ontrack = (event) => {
@@ -172,6 +189,11 @@ export default function MeetingRoom() {
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!message.trim()) return;
+    
+    if (dcRef.current && dcRef.current.readyState === "open") {
+      dcRef.current.send(message);
+    }
+    
     setChat([...chat, { sender: "Me", text: message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     setMessage("");
   };
@@ -232,22 +254,33 @@ export default function MeetingRoom() {
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 relative">
             {/* Remote Participant (Candidate/HR) */}
             <div className="relative bg-[#1e293b] rounded-3xl overflow-hidden border border-slate-700/50 group shadow-2xl">
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
-                 <div className="text-center">
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white shadow-xl">
-                      {meeting.candidate_id.name[0]}
-                    </div>
-                    <p className="text-xl font-black text-white">{meeting.candidate_id.name}</p>
-                    <p className="text-sm text-slate-400 font-medium">Waiting for participant to join...</p>
-                 </div>
-              </div>
-              <div className="absolute bottom-6 left-6 px-4 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-3">
-                <span className="text-xs font-bold text-white">{meeting.candidate_id.name}</span>
-                <div className="flex gap-1">
-                  <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
-                  <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                  <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+              {remoteStream ? (
+                <video 
+                  ref={remoteVideoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+                   <div className="text-center">
+                      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white shadow-xl">
+                        {isCaller ? meeting.candidate_id.name[0] : meeting.hr_id.name[0]}
+                      </div>
+                      <p className="text-xl font-black text-white">{isCaller ? meeting.candidate_id.name : meeting.hr_id.name}</p>
+                      <p className="text-sm text-slate-400 font-medium">Waiting for participant to join...</p>
+                   </div>
                 </div>
+              )}
+              <div className="absolute bottom-6 left-6 px-4 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-3">
+                <span className="text-xs font-bold text-white">{isCaller ? meeting.candidate_id.name : meeting.hr_id.name}</span>
+                {!remoteStream && (
+                  <div className="flex gap-1">
+                    <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
+                    <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                  </div>
+                )}
               </div>
             </div>
 
