@@ -15,7 +15,8 @@ const testSchema = new mongoose.Schema({
     correct_answer: String, // for MCQ
     test_cases: [{ // for coding questions
       input: String,
-      output: String
+      output: String,
+      is_hidden: { type: Boolean, default: false }
     }],
     points: { type: Number, default: 1 }
   }],

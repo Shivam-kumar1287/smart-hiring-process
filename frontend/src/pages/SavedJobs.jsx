@@ -33,6 +33,12 @@ export default function SavedJobs() {
           const res = await api.get(`/jobs/${jobId}`);
           return { ...res.data, saved: true };
         } catch (error) {
+          if (error.response?.status === 404) {
+            // If job not found, remove from localStorage
+            const currentSaved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+            const updated = currentSaved.filter(id => id !== jobId);
+            localStorage.setItem('savedJobs', JSON.stringify(updated));
+          }
           return null;
         }
       });

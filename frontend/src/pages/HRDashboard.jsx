@@ -11,6 +11,18 @@ export default function HRDashboard() {
   const [editingJob, setEditingJob] = useState(null);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingData, setMeetingData] = useState({
+    candidate_id: "",
+    job_id: "",
+    title: "",
+    description: "",
+    scheduled_at: "",
+    duration: 30,
+    type: "both",
+    is_instant: false
+  });
+  const [meetings, setMeetings] = useState([]);
   const [stats, setStats] = useState({
     totalJobs: 0, totalApplications: 0, 
     pendingApplications: 0, acceptedApplications: 0, 
@@ -29,6 +41,7 @@ export default function HRDashboard() {
   useEffect(() => {
     fetchJobs();
     fetchApplications();
+    fetchMeetings();
   }, []);
 
   const fetchJobs = async () => {
@@ -44,6 +57,13 @@ export default function HRDashboard() {
       const res = await api.get("/applications");
       setApplications(res.data);
       await calculateStats(jobs, res.data);
+    } catch (err) {}
+  };
+
+  const fetchMeetings = async () => {
+    try {
+      const res = await api.get("/meetings/my");
+      setMeetings(res.data);
     } catch (err) {}
   };
 
@@ -90,6 +110,18 @@ export default function HRDashboard() {
       fetchJobs();
     } catch (err) {
       alert("Error saving job");
+    }
+  };
+
+  const handleCreateMeeting = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/meetings/create", meetingData);
+      setShowMeetingModal(false);
+      fetchMeetings();
+      alert(meetingData.is_instant ? "Meeting room created! Candidate has been notified." : "Interview scheduled successfully!");
+    } catch (err) {
+      alert("Failed to create meeting");
     }
   };
 
@@ -148,6 +180,9 @@ export default function HRDashboard() {
     try {
       await api.put(`/applications/${appId}/promote`);
       await fetchApplications();
+      // Also refresh stats/reports
+      const res = await api.get("/jobs/my");
+      await calculateStats(res.data, applications);
       alert("Candidate promoted to the next round!");
     } catch (err) {
       alert("Error promoting candidate");
@@ -163,6 +198,9 @@ export default function HRDashboard() {
     try {
       await api.put(`/applications/${appId}/reject-assessment`);
       await fetchApplications();
+      // Also refresh stats/reports
+      const res = await api.get("/jobs/my");
+      await calculateStats(res.data, applications);
       alert("Candidate rejected.");
     } catch (err) {
       alert("Error rejecting candidate");
@@ -196,7 +234,7 @@ export default function HRDashboard() {
 
         {/* Navigation Tabs */}
         <div className="flex overflow-x-auto hide-scrollbar space-x-2 p-1 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 mb-8 max-w-fit">
-          {["overview", "jobs", "applications", "members", "reports"].map((tab) => (
+          {["overview", "jobs", "applications", "members", "reports", "interviews"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -206,7 +244,7 @@ export default function HRDashboard() {
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
             >
-              {tab === "jobs" ? `Manage Jobs (${jobs.length})` : tab === "applications" ? `Applicants (${applications.length})` : tab === "members" ? `Members (${applications.length})` : tab === "reports" ? "Assessment Reports" : tab}
+              {tab === "jobs" ? `Manage Jobs (${jobs.length})` : tab === "applications" ? `Applicants (${applications.length})` : tab === "members" ? `Members (${applications.length})` : tab === "reports" ? "Assessment Reports" : tab === "interviews" ? `Interviews (${meetings.length})` : tab}
             </button>
           ))}
 
@@ -543,6 +581,15 @@ export default function HRDashboard() {
                                   View Resume
                                 </a>
                                 <button 
+                                  onClick={() => {
+                                    setMeetingData({ ...meetingData, candidate_id: app.user_id, job_id: app.job_id, title: `Interview for ${app.job_role}` });
+                                    setShowMeetingModal(true);
+                                  }}
+                                  className="px-3 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest"
+                                >
+                                  Schedule
+                                </button>
+                                <button 
                                   onClick={() => setSelectedApplicant(app)}
                                   className="inline-flex items-center text-sm font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
                                 >
@@ -706,33 +753,49 @@ export default function HRDashboard() {
                           </td>
                           <td className="py-4">
                             {sub.status === 'submitted' ? (
-                              <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">Completed</span>
+                              <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-900/30">Completed</span>
                             ) : sub.status === 'cancelled' ? (
-                              <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">Terminated</span>
+                              <span className="px-3 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100 dark:border-rose-900/30">Terminated</span>
                             ) : (
-                              <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded text-[10px] font-bold">InProgress</span>
+                              <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">InProgress</span>
                             )}
                           </td>
                           <td className="py-4">
                             {sub.status === 'submitted' ? (
                               <div className="flex gap-2">
-                                <button 
-                                  onClick={() => handlePromote(sub.application_id)}
-                                  disabled={processing}
-                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-colors"
-                                >
-                                  Promote
-                                </button>
-                                <button 
-                                  onClick={() => handleRejectAssessment(sub.application_id)}
-                                  disabled={processing}
-                                  className="px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white text-[10px] font-bold rounded-lg transition-colors"
-                                >
-                                  Reject
-                                </button>
+                                {applications.find(a => a.id === sub.application_id)?.status === 'rejected' ? (
+                                  <span className="px-3 py-1.5 bg-rose-50 text-rose-600 text-[10px] font-black rounded-lg border border-rose-100 uppercase tracking-widest">Candidate Rejected</span>
+                                ) : (parseInt(applications.find(a => a.id === sub.application_id)?.current_round || 0) > sub.test_id?.round_number) ? (
+                                  <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-lg border border-emerald-100 uppercase tracking-widest">Promoted to R{applications.find(a => a.id === sub.application_id)?.current_round}</span>
+                                ) : (
+                                  <>
+                                    <button 
+                                      onClick={() => handlePromote(sub.application_id)}
+                                      disabled={processing}
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black rounded-xl transition-all shadow-md shadow-blue-900/20 active:scale-95 disabled:opacity-50"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                      PROMOTE
+                                    </button>
+                                    <button 
+                                      onClick={() => handleRejectAssessment(sub.application_id)}
+                                      disabled={processing}
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-gray-900 text-rose-600 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-[10px] font-black rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                      REJECT
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             ) : (
-                              <button className="text-blue-600 font-bold text-xs hover:underline">View Details</button>
+                              <button 
+                                onClick={() => { setSelectedApplicant(applications.find(a => a.id === sub.application_id)); setActiveTab("applications"); }}
+                                className="text-blue-600 font-bold text-xs hover:underline flex items-center gap-1"
+                              >
+                                View Details
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -748,7 +811,191 @@ export default function HRDashboard() {
               </div>
             </div>
           )}
-        </div>
+          
+          {/* Interviews Tab */}
+        {activeTab === "interviews" && (
+          <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-8 shadow-sm">
+             <div className="flex justify-between items-center mb-8">
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">Scheduled Interviews</h3>
+                <div className="flex gap-3">
+                   <button 
+                     onClick={() => {
+                       setMeetingData({
+                         candidate_id: "",
+                         job_id: "",
+                         title: "",
+                         description: "",
+                         scheduled_at: "",
+                         duration: 30,
+                         type: "both",
+                         is_instant: false
+                       });
+                       setShowMeetingModal(true);
+                     }}
+                     className="px-5 py-2.5 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg shadow-indigo-900/20 hover:bg-indigo-500 transition-all uppercase tracking-widest flex items-center gap-2"
+                   >
+                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                     Schedule New Interview
+                   </button>
+                   <span className="px-4 py-2 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-xl border border-emerald-100">● {meetings.filter(m => m.status === 'scheduled').length} UPCOMING</span>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {meetings.length === 0 ? (
+                  <div className="col-span-full py-20 text-center opacity-40">
+                    <p className="text-lg font-bold">No interviews scheduled yet.</p>
+                  </div>
+                ) : (
+                  meetings.map(m => (
+                    <div key={m._id} className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all">
+                       <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-black">{m.candidate_id.name[0]}</div>
+                             <div>
+                                <p className="text-sm font-black">{m.candidate_id.name}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{m.job_id.title}</p>
+                             </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${m.status === 'accepted' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{m.status}</span>
+                       </div>
+                       
+                       <div className="space-y-2 mb-6">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
+                             {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                             {m.type === 'both' ? 'Audio + Video' : m.type.charAt(0).toUpperCase() + m.type.slice(1)}
+                          </div>
+                       </div>
+
+                       <div className="flex gap-2">
+                          <button 
+                            onClick={() => navigate(`/meeting/${m.meeting_link}`)}
+                            className="flex-1 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-500 transition-all uppercase tracking-widest"
+                          >
+                            Join Room
+                          </button>
+                       </div>
+                    </div>
+                  ))
+                )}
+             </div>
+          </div>
+        )}
+
+        {/* Meeting Modal */}
+        {showMeetingModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
+             <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-8 shadow-2xl animate-fadeInUp">
+                <div className="flex justify-between items-center mb-8">
+                   <h3 className="text-xl font-black text-gray-900 dark:text-white">Setup Interview</h3>
+                   <button onClick={() => setShowMeetingModal(false)} className="text-gray-400 hover:text-gray-600"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                </div>
+
+                <form onSubmit={handleCreateMeeting} className="space-y-5">
+                   <div className="grid grid-cols-2 gap-4">
+                      {!meetingData.candidate_id && (
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Select Candidate & Job</label>
+                          <select 
+                            required
+                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            onChange={(e) => {
+                              const [candId, jobId, role] = e.target.value.split('|');
+                              setMeetingData({...meetingData, candidate_id: candId, job_id: jobId, title: `Interview for ${role}`});
+                            }}
+                          >
+                            <option value="">-- Choose an applicant --</option>
+                            {applications.filter(a => a.status === 'accepted').map(app => (
+                              <option key={app.id} value={`${app.user_id}|${app.job_id}|${app.job_role}`}>
+                                {app.user_name} - {app.job_role} (R{app.current_round})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Interview Title</label>
+                         <input 
+                           type="text" 
+                           required
+                           className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                           placeholder="e.g. Technical Round 1"
+                           value={meetingData.title}
+                           onChange={(e) => setMeetingData({...meetingData, title: e.target.value})}
+                         />
+                      </div>
+                      <div className="col-span-2">
+                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Description</label>
+                         <textarea 
+                           className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+                           placeholder="Meeting agenda..."
+                           value={meetingData.description}
+                           onChange={(e) => setMeetingData({...meetingData, description: e.target.value})}
+                         />
+                      </div>
+                      
+                      <div>
+                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Call Type</label>
+                         <select 
+                           className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                           value={meetingData.type}
+                           onChange={(e) => setMeetingData({...meetingData, type: e.target.value})}
+                         >
+                            <option value="both">Audio + Video</option>
+                            <option value="video">Video Only</option>
+                            <option value="audio">Audio Only</option>
+                         </select>
+                      </div>
+                      <div>
+                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Duration (min)</label>
+                         <input 
+                           type="number" 
+                           className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                           value={meetingData.duration}
+                           onChange={(e) => setMeetingData({...meetingData, duration: e.target.value})}
+                         />
+                      </div>
+
+                      <div className="col-span-2 flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                         <input 
+                           type="checkbox" 
+                           id="is_instant"
+                           checked={meetingData.is_instant}
+                           onChange={(e) => setMeetingData({...meetingData, is_instant: e.target.checked})}
+                           className="w-5 h-5 rounded-lg accent-blue-600"
+                         />
+                         <label htmlFor="is_instant" className="text-xs font-bold text-blue-700 dark:text-blue-300">Create Instant Meeting (Call Now)</label>
+                      </div>
+
+                      {!meetingData.is_instant && (
+                        <div className="col-span-2">
+                           <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Schedule At</label>
+                           <input 
+                             type="datetime-local" 
+                             required={!meetingData.is_instant}
+                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                             value={meetingData.scheduled_at}
+                             onChange={(e) => setMeetingData({...meetingData, scheduled_at: e.target.value})}
+                           />
+                        </div>
+                      )}
+                   </div>
+
+                   <button 
+                     type="submit"
+                     className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-[1.5rem] font-black text-sm shadow-xl shadow-blue-900/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest"
+                   >
+                     {meetingData.is_instant ? "Launch Meeting Now" : "Schedule Interview"}
+                   </button>
+                </form>
+             </div>
+          </div>
+        )}
+
       </div>
 
       {/* Candidate Profile Modal */}
@@ -937,6 +1184,6 @@ export default function HRDashboard() {
         </div>
       )}
     </div>
-    
-  );
+  </div>
+);
 }

@@ -26,7 +26,7 @@ export default function CreateTest() {
       points: 1,
       options: type === "mcq" ? ["", "", "", ""] : [],
       correct_answer: "",
-      test_cases: type === "code" ? [{ input: "", output: "" }] : []
+      test_cases: type === "code" ? [{ input: "", output: "", is_hidden: false }] : []
     };
     setTestData({ ...testData, questions: [...testData.questions, newQuestion] });
   };
@@ -38,13 +38,18 @@ export default function CreateTest() {
   };
 
   const handleCreate = async () => {
+    if (!testData.title || !testData.start_time || !testData.end_time) {
+      alert("Please fill in all required fields (Title, Start Time, End Time)");
+      return;
+    }
+
     setLoading(true);
     try {
       await api.post("/tests", { ...testData, job_id: jobId });
       alert("Test created successfully!");
       navigate("/hr-dashboard");
     } catch (err) {
-      alert("Failed to create test");
+      alert(err.response?.data?.error || "Failed to create test");
     } finally {
       setLoading(false);
     }
@@ -189,32 +194,47 @@ export default function CreateTest() {
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <h4 className="text-sm font-bold mb-2">Test Cases</h4>
                     {q.test_cases.map((tc, tcIdx) => (
-                      <div key={tcIdx} className="grid grid-cols-2 gap-2 mb-2">
-                        <input 
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                          placeholder="Input"
-                          value={tc.input}
-                          onChange={(e) => {
-                            const newTcs = [...q.test_cases];
-                            newTcs[tcIdx].input = e.target.value;
-                            updateQuestion(idx, "test_cases", newTcs);
-                          }}
-                        />
-                        <input 
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                          placeholder="Expected Output"
-                          value={tc.output}
-                          onChange={(e) => {
-                            const newTcs = [...q.test_cases];
-                            newTcs[tcIdx].output = e.target.value;
-                            updateQuestion(idx, "test_cases", newTcs);
-                          }}
-                        />
+                      <div key={tcIdx} className="space-y-2 mb-4 p-3 bg-white border border-gray-100 rounded-xl">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Input"
+                            value={tc.input}
+                            onChange={(e) => {
+                              const newTcs = [...q.test_cases];
+                              newTcs[tcIdx].input = e.target.value;
+                              updateQuestion(idx, "test_cases", newTcs);
+                            }}
+                          />
+                          <input 
+                            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Expected Output"
+                            value={tc.output}
+                            onChange={(e) => {
+                              const newTcs = [...q.test_cases];
+                              newTcs[tcIdx].output = e.target.value;
+                              updateQuestion(idx, "test_cases", newTcs);
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="checkbox"
+                            id={`hidden-${idx}-${tcIdx}`}
+                            checked={tc.is_hidden}
+                            onChange={(e) => {
+                              const newTcs = [...q.test_cases];
+                              newTcs[tcIdx].is_hidden = e.target.checked;
+                              updateQuestion(idx, "test_cases", newTcs);
+                            }}
+                          />
+                          <label htmlFor={`hidden-${idx}-${tcIdx}`} className="text-xs font-bold text-gray-500">Hidden Test Case (Used for final evaluation, not visible to candidate)</label>
+                        </div>
                       </div>
                     ))}
                     <button 
                       onClick={() => {
-                        const newTcs = [...q.test_cases, { input: "", output: "" }];
+                        const newTcs = [...q.test_cases, { input: "", output: "", is_hidden: false }];
                         updateQuestion(idx, "test_cases", newTcs);
                       }}
                       className="text-xs text-blue-500 font-bold"

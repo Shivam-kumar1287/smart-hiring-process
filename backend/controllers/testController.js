@@ -236,6 +236,9 @@ export const getSubmissionResults = async (req, res) => {
 export const findSubmission = async (req, res) => {
   try {
     const { test_id, user_id } = req.query;
+    if (!mongoose.Types.ObjectId.isValid(test_id) || !mongoose.Types.ObjectId.isValid(user_id)) {
+      return res.status(400).json({ error: "Invalid ID format" });
+    }
     const submission = await TestSubmission.findOne({ test_id, user_id });
     if (!submission) return res.json(null);
     res.json(submission);

@@ -13,6 +13,7 @@ import AIAnalyzer from "./pages/AIAnalyzer";
 import CreateTest from "./pages/CreateTest";
 import TakeTest from "./pages/TakeTest";
 import TestResults from "./pages/TestResults";
+import MeetingRoom from "./pages/MeetingRoom";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Route path="/create-test/:jobId" element={<CreateTest />} />
         <Route path="/take-test/:testId" element={<TakeTest />} />
         <Route path="/test-results/:submissionId" element={<TestResults />} />
+        <Route path="/meeting/:meetingLink" element={<MeetingRoom />} />
       </Routes>
 
     </Router>

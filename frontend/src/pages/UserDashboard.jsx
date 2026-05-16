@@ -71,34 +71,64 @@ export default function UserDashboard() {
     fetchUserProfile();
     fetchApplications();
     loadSavedJobs();
-    fetchAssignedTests();
-    fetchTestHistory();
+    fetchMeetings();
   }, []);
+
+  useEffect(() => {
+    if (user?._id) {
+      fetchAssignedTests();
+      fetchTestHistory();
+    }
+  }, [user]);
+
+  const fetchMeetings = async () => {
+    try {
+      const res = await api.get("/meetings/my");
+      setMeetings(res.data);
+    } catch (err) {
+      console.error("Error fetching meetings");
+    }
+  };
+
+  const handleMeetingResponse = async (meetingId, status) => {
+    try {
+      await api.put(`/meetings/status/${meetingId}`, { status });
+      fetchMeetings();
+      alert(`Meeting invitation ${status} successfully!`);
+    } catch (err) {
+      alert("Failed to respond to invitation");
+    }
+  };
 
   const [assignedTests, setAssignedTests] = useState([]);
   const [testHistory, setTestHistory] = useState([]);
+  const [meetings, setMeetings] = useState([]);
 
   const fetchTestHistory = async () => {
     try {
       const res = await api.get("/applications/my");
       let allSubmissions = [];
       for (const app of res.data) {
+        if (!app.job_id) continue;
         try {
           // We need an endpoint to get all submissions for a user or search by app
           // Let's assume we can fetch by test results if we have the IDs
           // For now, let's just get the list of tests and see if there are submissions
-          const testsRes = await api.get(`/tests/job/${app.job_id._id || app.job_id}`);
+          const jobId = app.job_id._id || app.job_id;
+          const testsRes = await api.get(`/tests/job/${jobId}`);
           for (const test of testsRes.data) {
-            try {
-              const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
-              if (subRes.data && subRes.data.status === 'submitted') {
-                allSubmissions.push({
-                  ...subRes.data,
-                  test_title: test.title,
-                  show_marks: test.show_marks
-                });
-              }
-            } catch (e) {}
+            if (user?._id) {
+              try {
+                const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
+                if (subRes.data && subRes.data.status === 'submitted') {
+                  allSubmissions.push({
+                    ...subRes.data,
+                    test_title: test.title,
+                    show_marks: test.show_marks
+                  });
+                }
+              } catch (e) {}
+            }
           }
         } catch (e) {}
       }
@@ -110,7 +140,7 @@ export default function UserDashboard() {
     try {
       // We need an endpoint to get tests for the logged in user
       const res = await api.get("/applications/my");
-      const jobIds = [...new Set(res.data.map(app => app.job_id._id || app.job_id))];
+      const jobIds = [...new Set(res.data.filter(app => app.job_id).map(app => app.job_id._id || app.job_id))];
       
       let allTests = [];
       for (const jobId of jobIds) {
@@ -122,6 +152,7 @@ export default function UserDashboard() {
       const activeTests = [];
       for (const test of allTests) {
         const app = res.data.find(a => {
+          if (!a.job_id) return false;
           const aJobId = a.job_id._id || a.job_id;
           const tJobId = test.job_id._id || test.job_id;
           return aJobId.toString() === tJobId.toString();
@@ -134,13 +165,17 @@ export default function UserDashboard() {
 
         if (app && app.status === 'accepted' && isCorrectRound) {
           // Check if already submitted
-          try {
-            const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
-            if (!subRes.data || (subRes.data.status !== 'submitted' && subRes.data.status !== 'cancelled')) {
+          if (user?._id) {
+            try {
+              const subRes = await api.get(`/tests/find?test_id=${test._id}&user_id=${user._id}`);
+              if (!subRes.data || (subRes.data.status !== 'submitted' && subRes.data.status !== 'cancelled')) {
+                activeTests.push(test);
+              }
+            } catch (e) {
               activeTests.push(test);
             }
-          } catch (e) {
-            activeTests.push(test);
+          } else {
+             activeTests.push(test);
           }
         }
       }
@@ -230,6 +265,12 @@ export default function UserDashboard() {
         const res = await api.get(`/jobs/${jobId}`);
         return { ...res.data, saved: true };
       } catch (error) {
+        if (error.response?.status === 404) {
+          // If job not found, remove from localStorage
+          const currentSaved = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+          const updated = currentSaved.filter(id => id !== jobId);
+          localStorage.setItem('savedJobs', JSON.stringify(updated));
+        }
         return null;
       }
     });
@@ -454,6 +495,72 @@ export default function UserDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Interviews Section */}
+              <div className="mt-8">
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  Interview Invitations ({meetings.filter(m => m.status !== 'completed').length})
+                </h3>
+                {meetings.length === 0 ? (
+                  <div className="p-8 bg-white dark:bg-gray-900 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800 text-center opacity-40">
+                    <p className="text-sm font-bold uppercase tracking-widest">No interview requests at this time</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {meetings.map(m => (
+                      <div key={m._id} className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black">{m.hr_id.name[0]}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-black truncate">{m.title}</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">with {m.hr_id.name}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 mb-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                           <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400">
+                              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                              {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                           </div>
+                           <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400">
+                              <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                              {m.type === 'both' ? 'Audio + Video' : m.type.charAt(0).toUpperCase() + m.type.slice(1)}
+                           </div>
+                        </div>
+
+                        {m.status === 'scheduled' ? (
+                          <div className="flex gap-2">
+                             <button 
+                               onClick={() => handleMeetingResponse(m._id, 'accepted')}
+                               className="flex-1 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-xl hover:bg-emerald-500 transition-all uppercase tracking-widest shadow-lg shadow-emerald-900/20"
+                             >
+                               Accept
+                             </button>
+                             <button 
+                               onClick={() => handleMeetingResponse(m._id, 'rejected')}
+                               className="px-4 py-2 bg-white dark:bg-gray-900 text-rose-600 text-[10px] font-black rounded-xl border border-rose-100 dark:border-rose-900/50 hover:bg-rose-50 transition-all uppercase tracking-widest"
+                             >
+                               Reject
+                             </button>
+                          </div>
+                        ) : m.status === 'accepted' ? (
+                          <button 
+                            onClick={() => navigate(`/meeting/${m.meeting_link}`)}
+                            className="w-full py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-500 transition-all uppercase tracking-widest shadow-lg shadow-blue-900/20"
+                          >
+                            Join Live Room
+                          </button>
+                        ) : (
+                          <div className="py-2 text-center bg-gray-100 dark:bg-gray-800 rounded-xl text-[10px] font-black text-gray-400 uppercase tracking-widest border border-gray-200 dark:border-gray-700">
+                            Invitation {m.status}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {assignedTests.length > 0 && (

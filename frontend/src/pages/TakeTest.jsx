@@ -10,9 +10,23 @@ export default function TakeTest() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [tabSwitches, setTabSwitches] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [activeLeftTab, setActiveLeftTab] = useState("description"); // "description" or "testcase"
+  const [user, setUser] = useState(null);
+  const [testResults, setTestResults] = useState(null); // { passed: 0, total: 0, cases: [] }
+  const [runError, setRunError] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [tabSwitches, setTabSwitches] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await api.get("/auth/profile");
+      setUser(res.data);
+    } catch (err) {
+      console.error("Failed to fetch user");
+    }
+  }, []);
 
   const fetchTest = useCallback(async () => {
     try {
@@ -20,6 +34,19 @@ export default function TakeTest() {
       setTest(res.data.test);
       setSubmissionId(res.data.submissionId);
       setTimeLeft(res.data.test.duration * 60);
+      
+      // Initialize code editor with boilerplate if empty
+      const initialAnswers = {};
+      res.data.test.questions.forEach(q => {
+        if (q.type === 'code') {
+          initialAnswers[q._id] = {
+            language: "javascript",
+            code: "// Write your code here...\n\nfunction solution(input) {\n  // Your code logic\n  return input;\n}"
+          };
+        }
+      });
+      setAnswers(initialAnswers);
+      
       setLoading(false);
     } catch (err) {
       alert(err.response?.data?.error || "Failed to start test");
@@ -28,8 +55,9 @@ export default function TakeTest() {
   }, [testId, navigate]);
 
   useEffect(() => {
+    fetchUser();
     fetchTest();
-  }, [fetchTest]);
+  }, [fetchUser, fetchTest]);
 
   // Timer logic
   useEffect(() => {
@@ -61,7 +89,6 @@ export default function TakeTest() {
           navigate("/user-dashboard");
         } else {
           setTabSwitches(res.data.tab_switches);
-          alert(`Warning: Tab switch detected! Test will be cancelled if you switch again. (Strike 1/2)`);
         }
       } catch (err) {
         console.error(err);
@@ -101,6 +128,7 @@ export default function TakeTest() {
   };
 
   const handleFinalSubmit = async () => {
+    if (!window.confirm("Are you sure you want to finish the test? You won't be able to change your answers.")) return;
     setSubmitting(true);
     try {
       const res = await api.post(`/tests/finalize/${submissionId}`);
@@ -111,11 +139,71 @@ export default function TakeTest() {
       }
       navigate("/user-dashboard");
     } catch (err) {
-
       alert("Final submission failed");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const runCode = async () => {
+    const q = test.questions[currentQuestionIdx];
+    const code = answers[q._id]?.code;
+    const language = answers[q._id]?.language || "javascript";
+    
+    if (language !== "javascript") {
+      alert("Simulated execution is only supported for JavaScript in this environment.");
+      return;
+    }
+
+    setIsRunning(true);
+    setRunError(null);
+    setTestResults(null);
+
+    // Give some time for "running" animation
+    setTimeout(() => {
+      try {
+        const publicCases = q.test_cases.filter(tc => !tc.is_hidden);
+        const results = [];
+        let passedCount = 0;
+
+        for (const tc of publicCases) {
+          try {
+            // Very basic simulation: try to eval the code and call 'solution'
+            // In a real app, this would be a secure backend sandbox
+            const fullCode = `${code}\nreturn solution(${tc.input});`;
+            const userFn = new Function(fullCode);
+            const output = userFn();
+            
+            const isCorrect = output?.toString() === tc.output?.toString();
+            if (isCorrect) passedCount++;
+            
+            results.push({
+              input: tc.input,
+              expected: tc.output,
+              actual: output,
+              passed: isCorrect
+            });
+          } catch (e) {
+            results.push({
+              input: tc.input,
+              expected: tc.output,
+              error: e.message,
+              passed: false
+            });
+          }
+        }
+
+        setTestResults({
+          passed: passedCount,
+          total: publicCases.length,
+          cases: results
+        });
+      } catch (e) {
+        setRunError(e.message);
+      } finally {
+        setIsRunning(false);
+      }
+    }, 800);
   };
 
   const formatTime = (seconds) => {
@@ -124,104 +212,340 @@ export default function TakeTest() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading Assessment...</div>;
+  // Anti-cheat: Disable right-click, copy, paste
+  const preventCheat = (e) => {
+    e.preventDefault();
+    alert("Security Policy: Copying and pasting is disabled during the assessment.");
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#1a1a1a] flex flex-col items-center justify-center text-white font-mono">
+      <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-xl tracking-widest">INITIALIZING ENVIRONMENT...</p>
+    </div>
+  );
 
   const currentQ = test.questions[currentQuestionIdx];
+  const isCodeQ = currentQ.type === 'code';
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-8 flex flex-col">
-      <header className="flex justify-between items-center mb-8 bg-white/5 p-6 rounded-3xl backdrop-blur-xl border border-white/10">
-        <div>
-          <h1 className="text-xl font-black text-blue-400">{test.title}</h1>
-          <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Question {currentQuestionIdx + 1} of {test.questions.length}</p>
+    <div className="h-screen bg-[#1a1a1a] text-[#eff1f6] flex flex-col overflow-hidden font-sans">
+      {/* Top Navbar */}
+      <nav className="h-14 bg-[#282828] border-b border-[#3e3e3e] flex items-center justify-between px-4 shrink-0 shadow-lg z-20">
+        <div className="flex items-center gap-4">
+          <div className="bg-blue-600 p-1.5 rounded-lg">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+          </div>
+          <div className="h-4 w-[1px] bg-[#3e3e3e]"></div>
+          <h1 className="text-sm font-bold truncate max-w-[300px]">{test.title}</h1>
+          <div className="flex gap-1 ml-4">
+             {test.questions.map((_, i) => (
+               <div key={i} className={`w-6 h-1.5 rounded-full transition-all ${i === currentQuestionIdx ? "bg-blue-500" : i < currentQuestionIdx ? "bg-emerald-500" : "bg-[#3e3e3e]"}`}></div>
+             ))}
+          </div>
         </div>
-        <div className="flex gap-6 items-center">
-          <div className="text-center">
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Time Left</p>
-            <p className={`text-2xl font-black tabular-nums ${timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`}>
+
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2 bg-[#333] px-4 py-1.5 rounded-full border border-[#444]">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className={`text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-rose-500 animate-pulse' : 'text-emerald-400'}`}>
               {formatTime(timeLeft)}
-            </p>
+            </span>
           </div>
-          <div className="text-center">
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Warnings</p>
-            <p className="text-2xl font-black text-amber-500">{tabSwitches}/2</p>
+          
+          <div className="flex items-center gap-2">
+             <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Warnings:</span>
+             <span className={`text-sm font-black ${tabSwitches > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{tabSwitches}/2</span>
           </div>
-        </div>
-      </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full flex flex-col gap-8">
-        <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] min-h-[400px] flex flex-col">
-          <h2 className="text-2xl font-bold mb-8 leading-relaxed">
-            {currentQ.question}
-          </h2>
-
-          <div className="flex-1">
-            {currentQ.type === 'mcq' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {currentQ.options.map((opt, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => setAnswers({...answers, [currentQ._id]: { answer: opt }})}
-                    className={`p-6 rounded-2xl border-2 text-left transition-all font-bold ${
-                      answers[currentQ._id]?.answer === opt 
-                        ? "bg-blue-600 border-blue-400 shadow-lg shadow-blue-900/20" 
-                        : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20"
-                    }`}
-                  >
-                    <span className="mr-4 text-blue-400">0{i+1}.</span> {opt}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {currentQ.type === 'theory' && (
-              <textarea 
-                className="w-full h-64 bg-white/5 border border-white/10 rounded-2xl p-6 focus:ring-2 focus:ring-blue-500 outline-none resize-none font-medium leading-relaxed"
-                placeholder="Type your explanation here..."
-                value={answers[currentQ._id]?.answer || ""}
-                onChange={(e) => setAnswers({...answers, [currentQ._id]: { answer: e.target.value }})}
-              />
-            )}
-
-            {currentQ.type === 'code' && (
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <select 
-                    className="bg-white/10 border border-white/10 rounded-xl px-4 py-2 text-sm font-bold outline-none"
-                    value={answers[currentQ._id]?.language || "javascript"}
-                    onChange={(e) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], language: e.target.value }})}
-                  >
-                    <option value="javascript">JavaScript</option>
-                    <option value="python">Python</option>
-                    <option value="java">Java</option>
-                    <option value="cpp">C++</option>
-                    <option value="c">C</option>
-                  </select>
-                </div>
-                <textarea 
-                  className="w-full h-96 bg-gray-900 border border-white/10 rounded-2xl p-6 font-mono text-sm leading-relaxed focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="// Write your code here..."
-                  value={answers[currentQ._id]?.code || ""}
-                  onChange={(e) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], code: e.target.value }})}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center pb-12">
-          <p className="text-gray-500 text-sm italic">
-            Warning: Moving to the next question will auto-submit the current one.
-          </p>
           <button 
-            onClick={handleNext}
-            disabled={submitting}
-            className="px-12 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl font-black text-lg shadow-xl shadow-blue-900/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            onClick={handleFinalSubmit}
+            className="px-6 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-emerald-900/20"
           >
-            {submitting ? "Processing..." : currentQuestionIdx === test.questions.length - 1 ? "Finish & Submit" : "Next Question"}
+            Submit Test
           </button>
         </div>
-      </main>
+      </nav>
+
+      {/* Main Content Area */}
+      <div className={`flex-1 flex overflow-hidden ${isCodeQ ? 'flex-row' : 'flex-col p-8'}`}>
+        
+        {isCodeQ ? (
+          <>
+            {/* Left Side: Question & Testcases */}
+            <div className="w-[40%] flex flex-col border-r border-[#3e3e3e] bg-[#282828] relative overflow-hidden">
+              <div className="flex items-center gap-4 px-4 h-10 border-b border-[#3e3e3e] bg-[#222]">
+                <button 
+                  onClick={() => setActiveLeftTab("description")}
+                  className={`text-xs font-bold flex items-center gap-2 transition-all h-full border-b-2 ${activeLeftTab === "description" ? "text-blue-400 border-blue-400" : "text-gray-500 border-transparent hover:text-gray-300"}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Description
+                </button>
+                <button 
+                  onClick={() => setActiveLeftTab("testcase")}
+                  className={`text-xs font-bold flex items-center gap-2 transition-all h-full border-b-2 ${activeLeftTab === "testcase" ? "text-blue-400 border-blue-400" : "text-gray-500 border-transparent hover:text-gray-300"}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  Testcase
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {activeLeftTab === "description" ? (
+                  <div className="animate-fadeIn">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-xl font-bold">Q{currentQuestionIdx + 1}.</span>
+                      <span className="text-xl font-bold">{currentQ.question}</span>
+                    </div>
+                    
+                    <div className="flex gap-2 mb-6">
+                      <span className="px-2 py-0.5 bg-[#3e3e3e] text-[10px] text-emerald-400 font-bold rounded uppercase tracking-wider">Medium</span>
+                      <span className="px-2 py-0.5 bg-[#3e3e3e] text-[10px] text-gray-400 font-bold rounded uppercase tracking-wider">Algorithm</span>
+                    </div>
+
+                    <div className="prose prose-invert max-w-none text-[#eff1f6] text-[15px] leading-relaxed">
+                       <p>Implement a function that solves the given problem statement efficiently. Consider edge cases and time complexity.</p>
+                       <div className="bg-[#333] p-4 rounded-xl border border-[#444] mt-4">
+                         <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Example 1:</h4>
+                         <code className="text-emerald-400">Input: [1, 2, 3]</code><br/>
+                         <code className="text-blue-400">Output: 6</code>
+                       </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="animate-fadeIn space-y-4">
+                    {currentQ.test_cases.filter(tc => !tc.is_hidden).map((tc, idx) => (
+                      <div key={idx} className="bg-[#333] rounded-xl border border-[#444] overflow-hidden">
+                        <div className="bg-[#222] px-4 py-2 text-[10px] font-black uppercase text-gray-500 flex justify-between">
+                          <span>Case {idx + 1}</span>
+                          <span className="text-emerald-500">Public</span>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter mb-1">Input</p>
+                            <div className="bg-[#1a1a1a] p-2 rounded text-sm font-mono text-gray-300">{tc.input}</div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter mb-1">Expected Output</p>
+                            <div className="bg-[#1a1a1a] p-2 rounded text-sm font-mono text-emerald-400">{tc.output}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {currentQ.test_cases.filter(tc => tc.is_hidden).length > 0 && (
+                      <div className="p-4 bg-indigo-900/20 border border-indigo-900/40 rounded-xl">
+                        <p className="text-xs text-indigo-400 font-bold flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                          {currentQ.test_cases.filter(tc => tc.is_hidden).length} Hidden test cases will be used for final evaluation.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Side: Code Editor */}
+            <div className="flex-1 flex flex-col bg-[#1e1e1e]">
+               <div className="flex items-center justify-between px-4 h-10 border-b border-[#3e3e3e] bg-[#222]">
+                  <div className="flex items-center gap-4 h-full">
+                    <div className="text-xs font-bold text-blue-400 flex items-center gap-2 border-b-2 border-blue-400 h-full">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+                      Code Editor
+                    </div>
+                    <select 
+                      className="bg-transparent border-none text-[11px] font-bold text-gray-400 outline-none cursor-pointer hover:text-white transition-colors"
+                      value={answers[currentQ._id]?.language || "javascript"}
+                      onChange={(e) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], language: e.target.value }})}
+                    >
+                      <option value="javascript">JavaScript</option>
+                      <option value="python">Python 3</option>
+                      <option value="java">Java 17</option>
+                      <option value="cpp">C++ 20</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 transition-all" title="Reset Code">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    </button>
+                    <button className="p-1.5 hover:bg-[#333] rounded-lg text-gray-500 transition-all" title="Settings">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+                  </div>
+               </div>
+
+               <div className="flex-1 relative group overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#222] border-r border-[#333] flex flex-col items-center py-4 select-none pointer-events-none">
+                    {[...Array(100)].map((_, i) => (
+                      <span key={i} className="text-[10px] text-gray-600 font-mono h-[21px]">{i + 1}</span>
+                    ))}
+                  </div>
+                  <textarea 
+                    className={`w-full h-full bg-[#1e1e1e] pl-16 pr-6 py-4 font-mono text-[14px] leading-[21px] text-[#d4d4d4] focus:outline-none resize-none transition-all ${runError ? "border-l-4 border-rose-500" : ""}`}
+                    spellCheck="false"
+                    onCopy={preventCheat}
+                    onPaste={preventCheat}
+                    onCut={preventCheat}
+                    onContextMenu={(e) => e.preventDefault()}
+                    value={answers[currentQ._id]?.code || ""}
+                    onChange={(e) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], code: e.target.value }})}
+                  />
+                  
+                  {/* Error Overlay */}
+                  {runError && (
+                    <div className="absolute bottom-4 right-4 max-w-[80%] bg-rose-900/90 border border-rose-500 p-4 rounded-xl backdrop-blur-md animate-fadeIn">
+                       <p className="text-xs font-black uppercase text-rose-300 mb-1 flex items-center gap-2">
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                         Syntax Error Detected
+                       </p>
+                       <p className="text-sm font-mono text-white">{runError}</p>
+                    </div>
+                  )}
+
+                  {/* Test Results Overlay */}
+                  {testResults && (
+                    <div className="absolute bottom-4 left-16 right-4 max-h-[40%] bg-[#222]/95 border border-[#444] rounded-xl backdrop-blur-md p-4 overflow-y-auto animate-fadeInUp">
+                       <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-sm font-black uppercase tracking-widest text-gray-400">Test Execution Summary</h4>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${testResults.passed === testResults.total ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
+                            {testResults.passed}/{testResults.total} CASES PASSED
+                          </span>
+                       </div>
+                       <div className="grid gap-2">
+                          {testResults.cases.map((tc, i) => (
+                            <div key={i} className={`p-3 rounded-lg border flex justify-between items-center ${tc.passed ? "bg-emerald-900/10 border-emerald-900/30" : "bg-rose-900/10 border-rose-900/30"}`}>
+                               <div className="text-xs font-mono">
+                                 <span className="text-gray-500 mr-2">Case {i+1}:</span>
+                                 <span className="text-blue-400">In: {tc.input}</span>
+                                 <span className="text-gray-600 mx-2">|</span>
+                                 {tc.error ? (
+                                   <span className="text-rose-400">Err: {tc.error}</span>
+                                 ) : (
+                                   <>
+                                     <span className="text-emerald-400">Exp: {tc.expected}</span>
+                                     <span className="text-gray-600 mx-2">|</span>
+                                     <span className={tc.passed ? "text-emerald-400" : "text-rose-400"}>Got: {tc.actual}</span>
+                                   </>
+                                 )}
+                               </div>
+                               {tc.passed ? (
+                                 <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                               ) : (
+                                 <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                               )}
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  )}
+               </div>
+
+               <div className="h-10 bg-[#282828] border-t border-[#3e3e3e] flex items-center justify-between px-4 shrink-0">
+                  <div className="flex gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                    {isRunning ? (
+                      <span className="flex items-center gap-2 animate-pulse">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        Running code against test cases...
+                      </span>
+                    ) : (
+                      <span>Environment Ready</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={runCode}
+                      disabled={isRunning}
+                      className="px-4 py-1 bg-[#333] hover:bg-[#444] text-[11px] font-bold rounded transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      Run Code
+                    </button>
+                    <button 
+                      onClick={handleNext}
+                      disabled={submitting}
+                      className="px-4 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 text-[11px] font-bold rounded transition-all border border-emerald-600/30 active:scale-95 disabled:opacity-50"
+                    >
+                      {submitting ? "Saving..." : currentQuestionIdx === test.questions.length - 1 ? "Submit" : "Next"}
+                    </button>
+                  </div>
+               </div>
+            </div>
+          </>
+        ) : (
+          /* MCQ / Theory View */
+          <div className="max-w-4xl mx-auto w-full flex flex-col gap-10 py-12">
+            <div className="bg-[#282828] border border-[#3e3e3e] p-10 rounded-3xl shadow-xl">
+              <h2 className="text-3xl font-bold mb-10 leading-relaxed text-blue-400">
+                <span className="text-gray-500 mr-4">Q{currentQuestionIdx + 1}.</span>
+                {currentQ.question}
+              </h2>
+
+              <div className="space-y-6">
+                {currentQ.type === 'mcq' && (
+                  <div className="grid grid-cols-1 gap-4">
+                    {currentQ.options.map((opt, i) => (
+                      <button 
+                        key={i}
+                        onClick={() => setAnswers({...answers, [currentQ._id]: { answer: opt }})}
+                        className={`group p-6 rounded-2xl border-2 text-left transition-all font-bold flex items-center gap-4 ${
+                          answers[currentQ._id]?.answer === opt 
+                            ? "bg-blue-600/10 border-blue-500 text-blue-400" 
+                            : "bg-[#222] border-[#333] text-gray-400 hover:border-[#444] hover:text-gray-200"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                          answers[currentQ._id]?.answer === opt ? "bg-blue-500 border-blue-400 text-white" : "border-[#444] group-hover:border-gray-500"
+                        }`}>
+                          {String.fromCharCode(65 + i)}
+                        </div>
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {currentQ.type === 'theory' && (
+                  <textarea 
+                    className="w-full h-80 bg-[#222] border border-[#333] rounded-2xl p-8 focus:ring-2 focus:ring-blue-500 outline-none resize-none font-medium leading-relaxed text-gray-200"
+                    placeholder="Type your comprehensive explanation here..."
+                    value={answers[currentQ._id]?.answer || ""}
+                    onChange={(e) => setAnswers({...answers, [currentQ._id]: { answer: e.target.value }})}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <p className="text-gray-600 text-xs italic font-medium">Auto-saving your progress...</p>
+              <button 
+                onClick={handleNext}
+                disabled={submitting}
+                className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-900/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+              >
+                {submitting ? "Processing..." : currentQuestionIdx === test.questions.length - 1 ? "Finish Assessment" : "Next Question"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* CSS Animations */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInUp {
+          animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}} />
     </div>
   );
 }

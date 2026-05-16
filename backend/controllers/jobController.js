@@ -92,9 +92,23 @@ export const deleteJob = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await Job.findOneAndDelete({ _id: id, created_by: req.user.id });
+    const job = await Job.findOneAndDelete({ _id: id, created_by: req.user.id });
+    if (!job) return res.status(404).json("Job not found or unauthorized");
 
-    res.json("Job deleted successfully");
+    // Cascading deletion
+    await Application.deleteMany({ job_id: id });
+    
+    // Also delete tests and their submissions
+    const Test = mongoose.model("Test");
+    const TestSubmission = mongoose.model("TestSubmission");
+    
+    const tests = await Test.find({ job_id: id });
+    const testIds = tests.map(t => t._id);
+    
+    await Test.deleteMany({ job_id: id });
+    await TestSubmission.deleteMany({ test_id: { $in: testIds } });
+
+    res.json("Job and all associated data deleted successfully");
   } catch (error) {
     console.error("Error deleting job:", error);
     res.status(500).json("Error deleting job");

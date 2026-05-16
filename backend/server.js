@@ -27,7 +27,7 @@ import mcqRoutes from "./routes/mcqRoutes.js";
 import interviewRoutes from "./routes/interviewRoutes.js";
 
 import testRoutes from "./routes/testRoutes.js";
-
+import meetingRoutes from "./routes/meetingRoutes.js";
 
 import fs from "fs";
 
@@ -133,6 +133,7 @@ app.use("/api/mcq", mcqRoutes);
 app.use("/api/interview", interviewRoutes);
 
 app.use("/api/tests", testRoutes);
+app.use("/api/meetings", meetingRoutes);
 
 
 app.use("/api", healthRoutes);
