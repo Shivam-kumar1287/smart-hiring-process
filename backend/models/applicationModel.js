@@ -11,6 +11,7 @@ const applicationSchema = new mongoose.Schema({
   current_round: { type: String, default: '0' },
   is_offer_sent: { type: Boolean, default: false },
   status: { type: String, enum: ['applied', 'pending', 'accepted', 'rejected'], default: 'pending' },
+  applied_with_profile: { type: Boolean, default: false }
 }, { timestamps: true });
 
 applicationSchema.set('toJSON', { virtuals: true });

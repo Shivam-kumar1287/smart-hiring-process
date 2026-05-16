@@ -24,30 +24,31 @@ export const getATSScore = async (filePath, jd) => {
       messages: [
         {
           role: "system",
-          content: "You are an expert HR application evaluator. You calculate a Criteria Match Score (CRI Score) between 0 and 100 based on how well a candidate's resume matches the Job Description. Provide your response in the following format:\nScore: [number]\nReasoning: [summary of matching/missing skills]\nSuggestions: [3 bullet points on how to improve the resume for this role]"
+          content: `You are an expert HR application evaluator. Analyze the resume against the provided Job Description.
+          Return a JSON object with exactly these fields:
+          {
+            "score": number (0-100),
+            "explanation": "summary of matching/missing skills",
+            "suggestions": ["suggestion1", "suggestion2"]
+          }`
         },
         {
           role: "user",
-          content: `Calculate the CRI Score (0-100), reasoning, and suggestions.\nResume:\n${extractedText}\n\nJD:\n${jd}`
+          content: `Resume:\n${extractedText}\n\nJob Description:\n${jd}`
         }
-      ]
+      ],
+      response_format: { type: "json_object" }
     });
 
-    const aiResponse = res.choices[0].message.content;
-
-    const scoreMatch = aiResponse.match(/Score:\s*(\d+)/i);
-    const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
-
-    const reasonMatch = aiResponse.match(/Reasoning:\s*([\s\S]+?)(?=\nSuggestions:|$)/i);
-    const explanation = reasonMatch ? reasonMatch[1].trim() : "Analysis provided.";
-
-    const sugMatch = aiResponse.match(/Suggestions:\s*([\s\S]+)/i);
-    const suggestions = sugMatch ? sugMatch[1].trim() : "Maintain your current high standard.";
-
-    return { score, explanation, suggestions };
+    const analysis = JSON.parse(res.choices[0].message.content);
+    return { 
+      score: analysis.score, 
+      explanation: analysis.explanation, 
+      suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions.join('\n') : analysis.suggestions
+    };
   } catch (error) {
     console.error("Error in getATSScore using Groq:", error);
-    return { score: null, explanation: "Error during AI evaluation", suggestions: null };
+    return { score: 0, explanation: "Error during AI evaluation", suggestions: "Please try again later." };
   }
 };
 

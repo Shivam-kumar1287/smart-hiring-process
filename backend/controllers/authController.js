@@ -211,16 +211,28 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, location, bio, skills, social_links } = req.body;
+    const { 
+      name, phone, location, bio, hard_skills, soft_skills, social_links,
+      education, experience, projects, certifications, achievements, custom_sections
+    } = req.body;
     
-    await User.findByIdAndUpdate(req.user.id, {
+    const updateData = {
       name,
       phone,
       location,
       bio,
-      skills,
-      social_links: typeof social_links === 'string' ? social_links : JSON.stringify(social_links)
-    });
+      hard_skills: Array.isArray(hard_skills) ? hard_skills : (typeof hard_skills === 'string' ? hard_skills.split(',').map(s => s.trim()).filter(s => s !== "") : []),
+      soft_skills: Array.isArray(soft_skills) ? soft_skills : (typeof soft_skills === 'string' ? soft_skills.split(',').map(s => s.trim()).filter(s => s !== "") : []),
+      social_links: Array.isArray(social_links) ? social_links : [],
+      education: Array.isArray(education) ? education : [],
+      experience: Array.isArray(experience) ? experience : [],
+      projects: Array.isArray(projects) ? projects : [],
+      certifications: Array.isArray(certifications) ? certifications : [],
+      achievements: Array.isArray(achievements) ? achievements : [],
+      custom_sections: Array.isArray(custom_sections) ? custom_sections : []
+    };
+
+    await User.findByIdAndUpdate(req.user.id, updateData);
     
     res.json("Profile updated successfully");
   } catch (error) {

@@ -405,7 +405,7 @@ export default function HRDashboard() {
                                   {(Array.isArray(app.social_links) ? app.social_links : []).map((link, i) => (
                                     <a 
                                       key={i} 
-                                      href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 
+                                      href={(link.url || "").startsWith('http') ? link.url : `https://${link.url || ""}`} 
                                       target="_blank" 
                                       rel="noopener noreferrer"
                                       className="inline-flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm transition-all"
@@ -598,8 +598,8 @@ export default function HRDashboard() {
                             )}
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-white">{app.name || 'Unknown User'}</h3>
-                            <p className="text-gray-600 dark:text-gray-400">{app.email || 'No email'}</p>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-white">{app.user_name || 'Unknown User'}</h3>
+                            <p className="text-gray-600 dark:text-gray-400">{app.user_email || 'No email'}</p>
                             <div className="flex flex-wrap gap-2 mt-2">
                               <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
                                 Applied for: {app.job_role || 'Unknown Job'}
@@ -774,14 +774,26 @@ export default function HRDashboard() {
                 <div>
                   <h3 className="text-3xl font-black mb-1">{selectedApplicant.user_name}</h3>
                   <p className="text-blue-600 dark:text-blue-400 font-bold mb-1">{selectedApplicant.user_email}</p>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    {selectedApplicant.location || "Remote / Global"}
-                  </p>
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    <p className="text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5 bg-gray-50 dark:bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-gray-800">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      {selectedApplicant.location || "Remote / Global"}
+                    </p>
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-black text-xs ${
+                      selectedApplicant.ats_score >= 75 ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600" :
+                      selectedApplicant.ats_score >= 50 ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600" :
+                      "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600"
+                    }`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      CRI Match: {selectedApplicant.ats_score || "0"}%
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
+                
+                {/* About / Bio */}
                 <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Professional Bio</h4>
                   <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">
@@ -789,24 +801,99 @@ export default function HRDashboard() {
                   </p>
                 </div>
 
+                {/* Skills */}
                 <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Core Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedApplicant.skills ? selectedApplicant.skills.split(',').map((s, i) => (
-                      <span key={i} className="px-3.5 py-1.5 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-900/30">
-                        {s.trim()}
-                      </span>
-                    )) : <p className="text-gray-400 italic text-sm">No skills listed</p>}
+                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Categorized Skills</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Hard Skills</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(selectedApplicant.hard_skills) && selectedApplicant.hard_skills.length > 0 ? selectedApplicant.hard_skills.map((s, i) => (
+                          <span key={i} className="px-3 py-1 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black border border-blue-50 dark:border-blue-900/30">
+                            {s.trim()}
+                          </span>
+                        )) : <p className="text-[10px] text-gray-400 italic">None listed</p>}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Soft Skills</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(selectedApplicant.soft_skills) && selectedApplicant.soft_skills.length > 0 ? selectedApplicant.soft_skills.map((s, i) => (
+                          <span key={i} className="px-3 py-1 bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black border border-emerald-50 dark:border-emerald-900/30">
+                            {s.trim()}
+                          </span>
+                        )) : <p className="text-[10px] text-gray-400 italic">None listed</p>}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
+                {/* Education */}
+                {selectedApplicant.education?.length > 0 && (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Education</h4>
+                    <div className="space-y-4">
+                      {selectedApplicant.education.map((edu, i) => (
+                        <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
+                          <p className="font-black text-gray-900 dark:text-white">{edu.degree}</p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">{edu.institution}</p>
+                          <div className="flex justify-between mt-2 text-[10px] font-black uppercase text-gray-400">
+                            <span>{edu.board}</span>
+                            <span>Score: {edu.marks} • {edu.year}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Experience */}
+                {selectedApplicant.experience?.length > 0 && (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Work Experience</h4>
+                    <div className="space-y-4">
+                      {selectedApplicant.experience.map((exp, i) => (
+                        <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
+                          <div className="flex justify-between items-start">
+                            <p className="font-black text-gray-900 dark:text-white">{exp.position}</p>
+                            <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{exp.duration}</span>
+                          </div>
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">{exp.company}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{exp.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Projects */}
+                {selectedApplicant.projects?.length > 0 && (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Projects</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {selectedApplicant.projects.map((proj, i) => (
+                        <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
+                          <p className="font-black text-gray-900 dark:text-white truncate">{proj.title}</p>
+                          <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{proj.description}</p>
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {proj.technologies?.slice(0, 3).map((t, ti) => (
+                              <span key={ti} className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-gray-50 dark:bg-gray-800 text-gray-400 rounded-md">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Links */}
                 <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Professional Links</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Array.isArray(selectedApplicant.social_links) && selectedApplicant.social_links.length > 0 ? selectedApplicant.social_links.map((link, i) => (
                       <a 
                         key={i} 
-                        href={link.url.startsWith('http') ? link.url : `https://${link.url}`} 
+                        href={(link.url || "").startsWith('http') ? link.url : `https://${link.url || ""}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl hover:shadow-md transition-all group"
@@ -816,7 +903,7 @@ export default function HRDashboard() {
                         </div>
                         <div className="truncate">
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">{link.platform}</p>
-                          <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{link.url.replace(/^https?:\/\//i, '')}</p>
+                          <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{(link.url || "").replace(/^https?:\/\//i, '')}</p>
                         </div>
                       </a>
                     )) : <p className="text-gray-400 italic text-sm">No links provided</p>}
@@ -830,14 +917,19 @@ export default function HRDashboard() {
                     </div>
                     <span className="font-bold text-purple-900 dark:text-purple-300">{selectedApplicant.phone || "No phone provided"}</span>
                   </div>
-                  <a 
-                    href={selectedApplicant.resume_path ? `http://localhost:5000/${selectedApplicant.resume_path.replace(/\\/g, '/')}` : "#"} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors"
-                  >
-                    Open Resume
-                  </a>
+                  {selectedApplicant.resume_path && (
+                    <a 
+                      href={`http://localhost:5000/${selectedApplicant.resume_path.replace(/\\/g, '/')}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors"
+                    >
+                      Open Resume
+                    </a>
+                  )}
+                  {selectedApplicant.applied_with_profile && (
+                    <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-widest">Applied via Profile</span>
+                  )}
                 </div>
               </div>
             </div>

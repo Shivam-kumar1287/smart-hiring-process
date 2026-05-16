@@ -10,7 +10,7 @@ import { sendMail } from "../utils/mailer.js";
  */
 export const applyJob = async (req, res) => {
   try {
-    const { job_id, cover_letter } = req.body;
+    const { job_id, cover_letter, use_profile } = req.body;
     const user_id = req.user.id;
     const resume_file = req.file;
 
@@ -34,29 +34,59 @@ export const applyJob = async (req, res) => {
       return res.status(400).json("This job is no longer accepting applications");
     }
 
-    // Insert application with resume file path
+    // Check if applying with profile or resume
+    if (!resume_file && use_profile !== 'true' && use_profile !== true) {
+      return res.status(400).json("Please upload a resume or choose to apply using your profile.");
+    }
+
+    // Get user details if using profile for ATS
+    const user = await User.findById(user_id);
+    if (!user) return res.status(404).json("User not found");
+
+    // Insert application
     const resume_path = resume_file ? resume_file.path : null;
     const application = await Application.create({
       user_id,
       job_id,
       cover_letter: cover_letter || "",
       resume_path,
-      status: 'pending'
+      status: 'pending',
+      applied_with_profile: !resume_path
     });
 
     try {
-      // Calculate CRI score based on resume and job description
+      // Calculate CRI score
+      const { getATSScore, analyzeResumeDetailed } = await import("../services/atsService.js");
+      
+      let atsResult;
       if (resume_path) {
-        const { getATSScore } = await import("../services/atsService.js");
-        const { score, explanation, suggestions } = await getATSScore(resume_path, job.description);
-        
-        // Update application with ATS result
-        if (score !== null) {
-          application.ats_score = score;
-          application.ats_explanation = explanation;
-          application.ats_suggestions = suggestions;
-          await application.save();
-        }
+        atsResult = await getATSScore(resume_path, job.description);
+      } else {
+        // Construct a text representation of the profile for ATS analysis
+        const profileText = `
+          Name: ${user.name}
+          Bio: ${user.bio}
+          Hard Skills: ${user.hard_skills?.join(', ') || 'None'}
+          Soft Skills: ${user.soft_skills?.join(', ') || 'None'}
+          Education: ${user.education.map(e => `${e.degree} from ${e.institution} (${e.year})`).join('; ')}
+          Experience: ${user.experience.map(e => `${e.position} at ${e.company} (${e.duration}): ${e.description}`).join('; ')}
+          Projects: ${user.projects.map(p => `${p.title}: ${p.description}`).join('; ')}
+        `;
+        // Use detailed analysis service for profile text
+        const analysis = await analyzeResumeDetailed(null, job.description, profileText);
+        atsResult = {
+          score: analysis.score,
+          explanation: analysis.summary,
+          suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions.join('\n') : analysis.suggestions
+        };
+      }
+      
+      // Update application with ATS result
+      if (atsResult && atsResult.score !== null) {
+        application.ats_score = atsResult.score;
+        application.ats_explanation = atsResult.explanation;
+        application.ats_suggestions = atsResult.suggestions;
+        await application.save();
       }
     } catch (atsError) {
       console.error("ATS scoring error:", atsError);
@@ -105,9 +135,16 @@ export const getApplications = async (req, res) => {
       phone: app.user.phone,
       location: app.user.location,
       bio: app.user.bio,
-      skills: app.user.skills,
+      hard_skills: app.user.hard_skills,
+      soft_skills: app.user.soft_skills,
       social_links: app.user.social_links,
       profile_image: app.user.profile_image,
+      education: app.user.education,
+      experience: app.user.experience,
+      projects: app.user.projects,
+      certifications: app.user.certifications,
+      achievements: app.user.achievements,
+      custom_sections: app.user.custom_sections,
       job_role: app.job.job_role,
       company_name: app.job.company_name,
       rounds: app.job.rounds
@@ -162,6 +199,12 @@ export const getPendingApplications = async (req, res) => {
       skills: app.user.skills,
       social_links: app.user.social_links,
       profile_image: app.user.profile_image,
+      education: app.user.education,
+      experience: app.user.experience,
+      projects: app.user.projects,
+      certifications: app.user.certifications,
+      achievements: app.user.achievements,
+      custom_sections: app.user.custom_sections,
       job_role: app.job.job_role,
       company_name: app.job.company_name,
       rounds: app.job.rounds
@@ -186,10 +229,10 @@ export const getMyApplications = async (req, res) => {
     const formatted = applications.map(app => ({
       ...app.toObject(),
       id: app._id.toString(),
-      job_role: app.job_id.job_role,
-      company_name: app.job_id.company_name,
-      description: app.job_id.description,
-      rounds: app.job_id.rounds
+      job_role: app.job_id ? app.job_id.job_role : "Job Unavailable",
+      company_name: app.job_id ? app.job_id.company_name : "Unknown Company",
+      description: app.job_id ? app.job_id.description : "This job listing is no longer available.",
+      rounds: app.job_id ? app.job_id.rounds : 0
     }));
 
     res.json(formatted);
@@ -448,8 +491,8 @@ export const getApplicationDetails = async (req, res) => {
       .populate('user_id')
       .populate('job_id');
 
-    if (!application || application.job_id.created_by.toString() !== hrId) {
-      return res.status(404).json("Application not found");
+    if (!application || !application.job_id || application.job_id.created_by.toString() !== hrId) {
+      return res.status(404).json("Application or Job not found");
     }
     
     const appObj = application.toObject();
@@ -459,10 +502,18 @@ export const getApplicationDetails = async (req, res) => {
       user_name: appObj.user_id.name,
       user_email: appObj.user_id.email,
       phone: appObj.user_id.phone,
-      skills: appObj.user_id.skills,
+      location: appObj.user_id.location,
+      hard_skills: appObj.user_id.hard_skills,
+      soft_skills: appObj.user_id.soft_skills,
       bio: appObj.user_id.bio,
       social_links: appObj.user_id.social_links,
       profile_image: appObj.user_id.profile_image,
+      education: appObj.user_id.education,
+      experience: appObj.user_id.experience,
+      projects: appObj.user_id.projects,
+      certifications: appObj.user_id.certifications,
+      achievements: appObj.user_id.achievements,
+      custom_sections: appObj.user_id.custom_sections,
       job_role: appObj.job_id.job_role,
       company_name: appObj.job_id.company_name,
       description: appObj.job_id.description,
@@ -488,10 +539,10 @@ export const getApplicationHistory = async (req, res) => {
     const formatted = history.map(app => ({
       ...app.toObject(),
       id: app._id.toString(),
-      job_role: app.job_id.job_role,
-      company_name: app.job_id.company_name,
-      description: app.job_id.description,
-      required_skills: app.job_id.required_skills
+      job_role: app.job_id ? app.job_id.job_role : "Job Unavailable",
+      company_name: app.job_id ? app.job_id.company_name : "Unknown Company",
+      description: app.job_id ? app.job_id.description : "This job listing is no longer available.",
+      required_skills: app.job_id ? app.job_id.required_skills : []
     }));
 
     res.json(formatted);
@@ -508,7 +559,7 @@ export const updateApplicationRound = async (req, res) => {
     
     const application = await Application.findById(id).populate('user_id').populate('job_id');
 
-    if (!application) return res.status(404).json("Application not found");
+    if (!application || !application.job_id) return res.status(404).json("Application or Job not found");
 
     application.current_round = round;
     await application.save();

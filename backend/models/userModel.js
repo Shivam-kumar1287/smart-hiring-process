@@ -11,9 +11,45 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   location: { type: String },
   bio: { type: String },
-  skills: { type: String }, // Can be array of strings if preferred
-  social_links: { type: String }, // Usually stored as JSON string in SQL, can be Object in Mongo
+  hard_skills: { type: [String], default: [] },
+  soft_skills: { type: [String], default: [] },
+  social_links: { type: Array, default: [] },
   profile_image: { type: String },
+  
+  // New Profile Fields
+  education: [{
+    institution: String,
+    degree: String,
+    board: String,
+    marks: String,
+    year: String
+  }],
+  experience: [{
+    company: String,
+    position: String,
+    duration: String,
+    description: String
+  }],
+  projects: [{
+    title: String,
+    description: String,
+    technologies: [String],
+    link: String
+  }],
+  certifications: [{
+    title: String,
+    organization: String,
+    year: String,
+    link: String
+  }],
+  achievements: [{
+    title: String,
+    description: String
+  }],
+  custom_sections: [{
+    title: String,
+    content: String
+  }]
 }, { timestamps: true });
 
 userSchema.set('toJSON', { virtuals: true });

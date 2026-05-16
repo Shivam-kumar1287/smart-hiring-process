@@ -152,12 +152,36 @@ export default function UserDashboard() {
   const fetchUserProfile = async () => {
     try {
       const res = await api.get("/auth/profile");
-      setUser(res.data);
+      const data = res.data;
+      
+      // Normalize skills
+      const hardSkillsArr = Array.isArray(data.hard_skills) ? data.hard_skills : (data.hard_skills ? data.hard_skills.split(',').map(s => s.trim()).filter(s => s) : []);
+      const softSkillsArr = Array.isArray(data.soft_skills) ? data.soft_skills : (data.soft_skills ? data.soft_skills.split(',').map(s => s.trim()).filter(s => s) : []);
+      
+      // Fallback for migration
+      if (hardSkillsArr.length === 0 && softSkillsArr.length === 0 && data.skills) {
+        if (Array.isArray(data.skills)) hardSkillsArr.push(...data.skills);
+        else if (typeof data.skills === 'string') hardSkillsArr.push(...data.skills.split(',').map(s => s.trim()));
+      }
+
+      // Normalize social links
+      let socialLinksArr = [];
+      if (Array.isArray(data.social_links)) {
+        socialLinksArr = data.social_links;
+      } else if (typeof data.social_links === 'object' && data.social_links !== null) {
+        socialLinksArr = Object.entries(data.social_links).map(([platform, url]) => ({ platform, url }));
+      }
+
+      const normalizedUser = { ...data, hard_skills: hardSkillsArr, soft_skills: softSkillsArr, social_links: socialLinksArr };
+      setUser(normalizedUser);
+      
       setProfileForm({
-        name: res.data.name || "", email: res.data.email || "",
-        phone: res.data.phone || "", location: res.data.location || "",
-        bio: res.data.bio || "", skills: res.data.skills || "",
-        social_links: res.data.social_links || []
+        name: data.name || "", email: data.email || "",
+        phone: data.phone || "", location: data.location || "",
+        bio: data.bio || "", 
+        hard_skills: hardSkillsArr.join(', '),
+        soft_skills: softSkillsArr.join(', '),
+        social_links: socialLinksArr
       });
     } catch (err) {
       if (err.response?.status === 401) {
@@ -731,11 +755,18 @@ export default function UserDashboard() {
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">{user?.bio || "No bio added yet."}</p>
                     </div>
                     <div className="col-span-1 md:col-span-2">
-                      <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Top Skills</p>
+                      <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Hard Skills</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {Array.isArray(user?.hard_skills) && user.hard_skills.length > 0 ? user.hard_skills.map((s, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-semibold border border-blue-200 dark:border-blue-800/50">{s.trim()}</span>
+                        )) : <p className="text-gray-500 italic text-sm">No hard skills listed</p>}
+                      </div>
+                      
+                      <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Soft Skills</p>
                       <div className="flex flex-wrap gap-2">
-                        {user?.skills ? user.skills.split(',').map((s, i) => (
-                          <span key={i} className="px-4 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-semibold border border-purple-200 dark:border-purple-800/50">{s.trim()}</span>
-                        )) : <p className="text-gray-500 italic">No skills listed</p>}
+                        {Array.isArray(user?.soft_skills) && user.soft_skills.length > 0 ? user.soft_skills.map((s, i) => (
+                          <span key={i} className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-sm font-semibold border border-emerald-200 dark:border-emerald-800/50">{s.trim()}</span>
+                        )) : <p className="text-gray-500 italic text-sm">No soft skills listed</p>}
                       </div>
                     </div>
                     <div className="col-span-1 md:col-span-2">
@@ -744,7 +775,7 @@ export default function UserDashboard() {
                         {Array.isArray(user?.social_links) && user.social_links.length > 0 ? user.social_links.map((link, i) => (
                           <a
                             key={i}
-                            href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                            href={(link.url || "").startsWith('http') ? link.url : `https://${link.url || ""}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl hover:shadow-md transition-all group"
@@ -754,7 +785,7 @@ export default function UserDashboard() {
                             </div>
                             <div className="truncate">
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">{link.platform}</p>
-                              <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{link.url.replace(/^https?:\/\//i, '')}</p>
+                              <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{(link.url || "").replace(/^https?:\/\//i, '')}</p>
                             </div>
                           </a>
                         )) : <p className="text-gray-400 italic text-sm">No links added.</p>}
