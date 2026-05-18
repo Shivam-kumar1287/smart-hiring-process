@@ -512,17 +512,19 @@ export default function UserDashboard() {
                     {meetings.map(m => (
                       <div key={m._id} className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
                         <div className="flex items-center gap-4 mb-4">
-                          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black">{m.hr_id.name[0]}</div>
+                          <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-black">
+                            {m.hr_id?.name ? m.hr_id.name[0] : "?"}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-black truncate">{m.title}</p>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">with {m.hr_id.name}</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">with {m.hr_id?.name || "Unknown Recruiter"}</p>
                           </div>
                         </div>
                         
                         <div className="space-y-2 mb-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
                            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400">
                               <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                              {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({m.duration} mins)
                            </div>
                            <div className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400">
                               <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>

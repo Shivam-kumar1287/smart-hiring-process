@@ -88,14 +88,14 @@ export default function MeetingRoom() {
         const dc = pc.createDataChannel("chat");
         dcRef.current = dc;
         dc.onmessage = (e) => {
-          setChat(prev => [...prev, { sender: meeting.candidate_id.name, text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+          setChat(prev => [...prev, { sender: meeting.candidate_id?.name || "Candidate", text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
         };
       } else {
         pc.ondatachannel = (event) => {
           const dc = event.channel;
           dcRef.current = dc;
           dc.onmessage = (e) => {
-            setChat(prev => [...prev, { sender: meeting.hr_id.name, text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+            setChat(prev => [...prev, { sender: meeting.hr_id?.name || "Recruiter", text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
           };
         };
       }
@@ -265,15 +265,15 @@ export default function MeetingRoom() {
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
                    <div className="text-center">
                       <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white shadow-xl">
-                        {isCaller ? meeting.candidate_id.name[0] : meeting.hr_id.name[0]}
+                        {isCaller ? (meeting.candidate_id?.name ? meeting.candidate_id.name[0] : "C") : (meeting.hr_id?.name ? meeting.hr_id.name[0] : "H")}
                       </div>
-                      <p className="text-xl font-black text-white">{isCaller ? meeting.candidate_id.name : meeting.hr_id.name}</p>
+                      <p className="text-xl font-black text-white">{isCaller ? (meeting.candidate_id?.name || "Candidate") : (meeting.hr_id?.name || "Recruiter")}</p>
                       <p className="text-sm text-slate-400 font-medium">Waiting for participant to join...</p>
                    </div>
                 </div>
               )}
               <div className="absolute bottom-6 left-6 px-4 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/10 flex items-center gap-3">
-                <span className="text-xs font-bold text-white">{isCaller ? meeting.candidate_id.name : meeting.hr_id.name}</span>
+                <span className="text-xs font-bold text-white">{isCaller ? (meeting.candidate_id?.name || "Candidate") : (meeting.hr_id?.name || "Recruiter")}</span>
                 {!remoteStream && (
                   <div className="flex gap-1">
                     <div className="w-1 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
@@ -405,16 +405,16 @@ export default function MeetingRoom() {
                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Participant Profiles</h4>
                    <div className="space-y-4">
                       <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-2xl border border-slate-700/30">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black">{meeting.hr_id.name[0]}</div>
+                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-xs font-black">{meeting.hr_id?.name ? meeting.hr_id.name[0] : "H"}</div>
                         <div>
-                           <p className="text-xs font-black">{meeting.hr_id.name}</p>
+                           <p className="text-xs font-black">{meeting.hr_id?.name || "Recruiter"}</p>
                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Host (HR)</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-2xl border border-slate-700/30">
-                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-xs font-black">{meeting.candidate_id.name[0]}</div>
+                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-xs font-black">{meeting.candidate_id?.name ? meeting.candidate_id.name[0] : "C"}</div>
                         <div>
-                           <p className="text-xs font-black">{meeting.candidate_id.name}</p>
+                           <p className="text-xs font-black">{meeting.candidate_id?.name || "Candidate"}</p>
                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Candidate</p>
                         </div>
                       </div>
@@ -424,9 +424,12 @@ export default function MeetingRoom() {
                 <div>
                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Candidate Skills</h4>
                    <div className="flex flex-wrap gap-2">
-                      {meeting.candidate_id.skills?.[0]?.split(',').slice(0, 5).map((skill, i) => (
-                        <span key={i} className="px-2 py-1 bg-slate-800 text-[10px] font-bold text-slate-300 rounded-lg border border-slate-700">{skill.trim()}</span>
-                      ))}
+                      {((meeting.candidate_id?.hard_skills && meeting.candidate_id.hard_skills.length > 0)
+                          ? meeting.candidate_id.hard_skills
+                          : (meeting.candidate_id?.skills?.[0] ? meeting.candidate_id.skills[0].split(',') : [])
+                       ).map(s => s.trim()).filter(s => s).slice(0, 5).map((skill, i) => (
+                         <span key={i} className="px-2 py-1 bg-slate-800 text-[10px] font-bold text-slate-300 rounded-lg border border-slate-700">{skill}</span>
+                       ))}
                    </div>
                 </div>
 

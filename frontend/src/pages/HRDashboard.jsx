@@ -18,6 +18,7 @@ export default function HRDashboard() {
     title: "",
     description: "",
     scheduled_at: "",
+    end_time: "",
     duration: 30,
     type: "both",
     is_instant: false
@@ -116,12 +117,40 @@ export default function HRDashboard() {
   const handleCreateMeeting = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/meetings/create", meetingData);
+      let finalMeetingData = { ...meetingData };
+      if (!meetingData.is_instant) {
+        if (!meetingData.scheduled_at || !meetingData.end_time) {
+          alert("Please select both start time and end time.");
+          return;
+        }
+        const start = new Date(meetingData.scheduled_at);
+        const end = new Date(meetingData.end_time);
+        if (end <= start) {
+          alert("End time must be after start time.");
+          return;
+        }
+        const diffMs = end - start;
+        const diffMins = Math.round(diffMs / 60000);
+        finalMeetingData.duration = diffMins;
+      }
+      await api.post("/meetings/create", finalMeetingData);
       setShowMeetingModal(false);
       fetchMeetings();
       alert(meetingData.is_instant ? "Meeting room created! Candidate has been notified." : "Interview scheduled successfully!");
     } catch (err) {
       alert("Failed to create meeting");
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId) => {
+    if (confirm("Are you sure you want to cancel and delete this interview invitation?")) {
+      try {
+        await api.delete(`/meetings/${meetingId}`);
+        fetchMeetings();
+        alert("Interview invitation cancelled successfully.");
+      } catch (err) {
+        alert("Failed to cancel interview: " + (err.response?.data?.error || "Unknown error"));
+      }
     }
   };
 
@@ -582,7 +611,16 @@ export default function HRDashboard() {
                                 </a>
                                 <button 
                                   onClick={() => {
-                                    setMeetingData({ ...meetingData, candidate_id: app.user_id, job_id: app.job_id, title: `Interview for ${app.job_role}` });
+                                    setMeetingData({ 
+                                      ...meetingData, 
+                                      candidate_id: app.user_id, 
+                                      job_id: app.job_id, 
+                                      title: `Interview for ${app.job_role}`,
+                                      scheduled_at: "",
+                                      end_time: "",
+                                      duration: 30,
+                                      is_instant: false
+                                    });
                                     setShowMeetingModal(true);
                                   }}
                                   className="px-3 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg border border-blue-100 hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest"
@@ -851,10 +889,12 @@ export default function HRDashboard() {
                     <div key={m._id} className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-all">
                        <div className="flex justify-between items-start mb-4">
                           <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-black">{m.candidate_id.name[0]}</div>
+                             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-black">
+                               {m.candidate_id?.name ? m.candidate_id.name[0] : "?"}
+                             </div>
                              <div>
-                                <p className="text-sm font-black">{m.candidate_id.name}</p>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{m.job_id.title}</p>
+                                <p className="text-sm font-black">{m.candidate_id?.name || "Unknown Candidate"}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{m.job_id?.title || "General Interview"}</p>
                              </div>
                           </div>
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${m.status === 'accepted' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{m.status}</span>
@@ -863,7 +903,7 @@ export default function HRDashboard() {
                        <div className="space-y-2 mb-6">
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
-                             {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             {new Date(m.scheduled_at).toLocaleDateString()} at {new Date(m.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({m.duration} mins)
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -872,13 +912,20 @@ export default function HRDashboard() {
                        </div>
 
                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => navigate(`/meeting/${m.meeting_link}`)}
-                            className="flex-1 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-500 transition-all uppercase tracking-widest"
-                          >
-                            Join Room
-                          </button>
-                       </div>
+                           <button 
+                             onClick={() => navigate(`/meeting/${m.meeting_link}`)}
+                             className="flex-1 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-500 transition-all uppercase tracking-widest"
+                           >
+                             Join Room
+                           </button>
+                           <button 
+                             type="button"
+                             onClick={() => handleDeleteMeeting(m._id)}
+                             className="py-2 px-4 bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 text-[10px] font-black rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950 transition-all uppercase tracking-widest border border-rose-100 dark:border-rose-900/30"
+                           >
+                             Cancel
+                           </button>
+                        </div>
                     </div>
                   ))
                 )}
@@ -938,7 +985,7 @@ export default function HRDashboard() {
                          />
                       </div>
                       
-                      <div>
+                      <div className="col-span-2">
                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Call Type</label>
                          <select 
                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
@@ -949,15 +996,6 @@ export default function HRDashboard() {
                             <option value="video">Video Only</option>
                             <option value="audio">Audio Only</option>
                          </select>
-                      </div>
-                      <div>
-                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Duration (min)</label>
-                         <input 
-                           type="number" 
-                           className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                           value={meetingData.duration}
-                           onChange={(e) => setMeetingData({...meetingData, duration: e.target.value})}
-                         />
                       </div>
 
                       <div className="col-span-2 flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-900/30">
@@ -972,16 +1010,28 @@ export default function HRDashboard() {
                       </div>
 
                       {!meetingData.is_instant && (
-                        <div className="col-span-2">
-                           <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Schedule At</label>
-                           <input 
-                             type="datetime-local" 
-                             required={!meetingData.is_instant}
-                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                             value={meetingData.scheduled_at}
-                             onChange={(e) => setMeetingData({...meetingData, scheduled_at: e.target.value})}
-                           />
-                        </div>
+                        <>
+                          <div className="col-span-2 md:col-span-1">
+                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Start Time</label>
+                             <input 
+                               type="datetime-local" 
+                               required={!meetingData.is_instant}
+                               className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                               value={meetingData.scheduled_at}
+                               onChange={(e) => setMeetingData({...meetingData, scheduled_at: e.target.value})}
+                             />
+                          </div>
+                          <div className="col-span-2 md:col-span-1">
+                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">End Time</label>
+                             <input 
+                               type="datetime-local" 
+                               required={!meetingData.is_instant}
+                               className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                               value={meetingData.end_time}
+                               onChange={(e) => setMeetingData({...meetingData, end_time: e.target.value})}
+                             />
+                          </div>
+                        </>
                       )}
                    </div>
 
@@ -1080,13 +1130,13 @@ export default function HRDashboard() {
                   <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                     <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Education</h4>
                     <div className="space-y-4">
-                      {selectedApplicant.education.map((edu, i) => (
+                      {selectedApplicant.education.filter(Boolean).map((edu, i) => (
                         <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
-                          <p className="font-black text-gray-900 dark:text-white">{edu.degree}</p>
-                          <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">{edu.institution}</p>
+                          <p className="font-black text-gray-900 dark:text-white">{edu.degree || "Degree/Certificate"}</p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">{edu.institution || "Institution"}</p>
                           <div className="flex justify-between mt-2 text-[10px] font-black uppercase text-gray-400">
-                            <span>{edu.board}</span>
-                            <span>Score: {edu.marks} • {edu.year}</span>
+                            <span>{edu.board || "Board/University"}</span>
+                            <span>Score: {edu.marks || "--"} • {edu.year || "Year"}</span>
                           </div>
                         </div>
                       ))}
@@ -1099,14 +1149,14 @@ export default function HRDashboard() {
                   <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                     <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Work Experience</h4>
                     <div className="space-y-4">
-                      {selectedApplicant.experience.map((exp, i) => (
+                      {selectedApplicant.experience.filter(Boolean).map((exp, i) => (
                         <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
                           <div className="flex justify-between items-start">
-                            <p className="font-black text-gray-900 dark:text-white">{exp.position}</p>
-                            <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{exp.duration}</span>
+                            <p className="font-black text-gray-900 dark:text-white">{exp.position || "Position"}</p>
+                            <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">{exp.duration || "Duration"}</span>
                           </div>
-                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">{exp.company}</p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{exp.description}</p>
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold">{exp.company || "Company"}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{exp.description || "Description"}</p>
                         </div>
                       ))}
                     </div>
@@ -1118,10 +1168,10 @@ export default function HRDashboard() {
                   <div className="p-6 bg-gray-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
                     <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Projects</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {selectedApplicant.projects.map((proj, i) => (
+                      {selectedApplicant.projects.filter(Boolean).map((proj, i) => (
                         <div key={i} className="bg-white dark:bg-gray-950 p-4 rounded-2xl border border-gray-50 dark:border-gray-800">
-                          <p className="font-black text-gray-900 dark:text-white truncate">{proj.title}</p>
-                          <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{proj.description}</p>
+                          <p className="font-black text-gray-900 dark:text-white truncate">{proj.title || "Project Title"}</p>
+                          <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{proj.description || "Project Description"}</p>
                           <div className="mt-3 flex flex-wrap gap-1">
                             {proj.technologies?.slice(0, 3).map((t, ti) => (
                               <span key={ti} className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-gray-50 dark:bg-gray-800 text-gray-400 rounded-md">{t}</span>

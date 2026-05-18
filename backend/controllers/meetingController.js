@@ -127,3 +127,21 @@ export const clearSignal = async (req, res) => {
     res.status(500).json({ error: "Signaling clear failed" });
   }
 };
+
+export const deleteMeeting = async (req, res) => {
+  try {
+    const { meetingId } = req.params;
+    const meeting = await Meeting.findById(meetingId);
+    if (!meeting) return res.status(404).json({ error: "Meeting not found" });
+    
+    if (meeting.hr_id.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized to delete this meeting" });
+    }
+
+    await Meeting.findByIdAndDelete(meetingId);
+    res.json({ message: "Meeting deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete meeting" });
+  }
+};
+
