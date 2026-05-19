@@ -20,7 +20,13 @@ const meetingSchema = new mongoose.Schema({
   offer: { type: String },
   answer: { type: String },
   callerCandidates: [{ type: String }],
-  calleeCandidates: [{ type: String }]
+  calleeCandidates: [{ type: String }],
+  chatMessages: [{
+    sender: { type: String, required: true }, // 'hr' or 'candidate'
+    senderName: { type: String, required: true },
+    text: { type: String, required: true },
+    time: { type: String, required: true }
+  }]
 }, { timestamps: true });
 
 const Meeting = mongoose.model("Meeting", meetingSchema);

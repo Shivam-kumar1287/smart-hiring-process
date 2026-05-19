@@ -45,7 +45,13 @@ export default function CreateTest() {
 
     setLoading(true);
     try {
-      await api.post("/tests", { ...testData, job_id: jobId });
+      const payload = {
+        ...testData,
+        job_id: jobId,
+        start_time: new Date(testData.start_time).toISOString(),
+        end_time: new Date(testData.end_time).toISOString()
+      };
+      await api.post("/tests", payload);
       alert("Test created successfully!");
       navigate("/hr-dashboard");
     } catch (err) {

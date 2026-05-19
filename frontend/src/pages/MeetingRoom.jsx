@@ -57,14 +57,14 @@ export default function MeetingRoom() {
         await api.delete(`/meetings/link/${meetingLink}/signal`);
       }
 
-      startCameraAndRTC();
+      startCameraAndRTC(res.data);
     } catch (err) {
       alert("Invalid meeting link");
       navigate("/dashboard");
     }
   };
 
-  const startCameraAndRTC = async () => {
+  const startCameraAndRTC = async (currentMeeting) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
@@ -88,14 +88,24 @@ export default function MeetingRoom() {
         const dc = pc.createDataChannel("chat");
         dcRef.current = dc;
         dc.onmessage = (e) => {
-          setChat(prev => [...prev, { sender: meeting.candidate_id?.name || "Candidate", text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+          const senderName = currentMeeting.candidate_id?.name || "Candidate";
+          setChat(prev => {
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (prev.some(m => m.text === e.data && m.sender === senderName)) return prev;
+            return [...prev, { sender: senderName, text: e.data, time: timeStr }];
+          });
         };
       } else {
         pc.ondatachannel = (event) => {
           const dc = event.channel;
           dcRef.current = dc;
           dc.onmessage = (e) => {
-            setChat(prev => [...prev, { sender: meeting.hr_id?.name || "Recruiter", text: e.data, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+            const senderName = currentMeeting.hr_id?.name || "Recruiter";
+            setChat(prev => {
+              const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              if (prev.some(m => m.text === e.data && m.sender === senderName)) return prev;
+              return [...prev, { sender: senderName, text: e.data, time: timeStr }];
+            });
           };
         };
       }
@@ -126,6 +136,23 @@ export default function MeetingRoom() {
           const res = await api.get(`/meetings/link/${meetingLink}`);
           const meetingData = res.data;
 
+          if (meetingData.chatMessages) {
+            const mappedChat = meetingData.chatMessages.map(msg => {
+              const isMe = (isCaller && msg.sender === 'hr') || (!isCaller && msg.sender === 'candidate');
+              return {
+                sender: isMe ? "Me" : msg.senderName,
+                text: msg.text,
+                time: msg.time
+              };
+            });
+            setChat(prev => {
+              if (prev.length === mappedChat.length && prev.every((m, i) => m.text === mappedChat[i].text && m.sender === mappedChat[i].sender)) {
+                return prev;
+              }
+              return mappedChat;
+            });
+          }
+
           if (isCaller) {
             // HR is Caller -> Sends Offer, Waits for Answer
             if (!pc.localDescription) {
@@ -154,7 +181,7 @@ export default function MeetingRoom() {
               const offer = JSON.parse(meetingData.offer);
               await pc.setRemoteDescription(new RTCSessionDescription(offer));
               remoteDescriptionSet = true;
-
+ 
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               await api.put(`/meetings/link/${meetingLink}/signal`, { answer: JSON.stringify(answer) });
@@ -186,16 +213,29 @@ export default function MeetingRoom() {
     return `${h > 0 ? h + ":" : ""}${m < 10 ? "0" + m : m}:${s < 10 ? "0" + s : s}`;
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim()) return;
     
+    const textToSend = message;
+    setMessage("");
+
     if (dcRef.current && dcRef.current.readyState === "open") {
-      dcRef.current.send(message);
+      try {
+        dcRef.current.send(textToSend);
+      } catch (err) {
+        console.error("Data channel send failed:", err);
+      }
     }
     
-    setChat([...chat, { sender: "Me", text: message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-    setMessage("");
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setChat(prev => [...prev, { sender: "Me", text: textToSend, time: timeStr }]);
+
+    try {
+      await api.post(`/meetings/link/${meetingLink}/chat`, { text: textToSend });
+    } catch (err) {
+      console.error("Failed to send chat message to server:", err);
+    }
   };
 
   if (loading) return (

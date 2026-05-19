@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../utils/api";
+import Editor from "@monaco-editor/react";
 
 export default function TakeTest() {
   const { testId } = useParams();
@@ -18,6 +19,7 @@ export default function TakeTest() {
   const [isRunning, setIsRunning] = useState(false);
   const [tabSwitches, setTabSwitches] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const bypassTabSwitch = useRef(false);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -71,20 +73,23 @@ export default function TakeTest() {
   // Tab switch detection
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
+      if (document.hidden && !bypassTabSwitch.current) {
         handleTabSwitch();
       }
     };
 
     const handleBlur = () => {
-      handleTabSwitch();
+      if (!bypassTabSwitch.current) {
+        handleTabSwitch();
+      }
     };
 
     const handleTabSwitch = async () => {
-      if (!submissionId || loading) return;
+      if (!submissionId || loading || bypassTabSwitch.current) return;
       try {
         const res = await api.put(`/tests/tab-switch/${submissionId}`);
         if (res.data.terminated) {
+          bypassTabSwitch.current = true;
           alert("Test terminated due to multiple tab switches!");
           navigate("/user-dashboard");
         } else {
@@ -121,14 +126,23 @@ export default function TakeTest() {
         await handleFinalSubmit();
       }
     } catch (err) {
+      bypassTabSwitch.current = true;
       alert("Failed to save answer");
+      setTimeout(() => {
+        bypassTabSwitch.current = false;
+      }, 100);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleFinalSubmit = async () => {
-    if (!window.confirm("Are you sure you want to finish the test? You won't be able to change your answers.")) return;
+    bypassTabSwitch.current = true;
+    const confirmed = window.confirm("Are you sure you want to finish the test? You won't be able to change your answers.");
+    if (!confirmed) {
+      bypassTabSwitch.current = false;
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await api.post(`/tests/finalize/${submissionId}`);
@@ -140,6 +154,7 @@ export default function TakeTest() {
       navigate("/user-dashboard");
     } catch (err) {
       alert("Final submission failed");
+      bypassTabSwitch.current = false;
     } finally {
       setSubmitting(false);
     }
@@ -149,61 +164,30 @@ export default function TakeTest() {
     const q = test.questions[currentQuestionIdx];
     const code = answers[q._id]?.code;
     const language = answers[q._id]?.language || "javascript";
-    
-    if (language !== "javascript") {
-      alert("Simulated execution is only supported for JavaScript in this environment.");
-      return;
-    }
 
     setIsRunning(true);
     setRunError(null);
     setTestResults(null);
 
-    // Give some time for "running" animation
-    setTimeout(() => {
-      try {
-        const publicCases = q.test_cases.filter(tc => !tc.is_hidden);
-        const results = [];
-        let passedCount = 0;
+    try {
+      const publicCases = q.test_cases.filter(tc => !tc.is_hidden);
+      const res = await api.post("/tests/run", {
+        code,
+        language,
+        test_cases: publicCases
+      });
 
-        for (const tc of publicCases) {
-          try {
-            // Very basic simulation: try to eval the code and call 'solution'
-            // In a real app, this would be a secure backend sandbox
-            const fullCode = `${code}\nreturn solution(${tc.input});`;
-            const userFn = new Function(fullCode);
-            const output = userFn();
-            
-            const isCorrect = output?.toString() === tc.output?.toString();
-            if (isCorrect) passedCount++;
-            
-            results.push({
-              input: tc.input,
-              expected: tc.output,
-              actual: output,
-              passed: isCorrect
-            });
-          } catch (e) {
-            results.push({
-              input: tc.input,
-              expected: tc.output,
-              error: e.message,
-              passed: false
-            });
-          }
-        }
-
-        setTestResults({
-          passed: passedCount,
-          total: publicCases.length,
-          cases: results
-        });
-      } catch (e) {
-        setRunError(e.message);
-      } finally {
-        setIsRunning(false);
+      setTestResults(res.data);
+      
+      const firstErrorCase = res.data.cases.find(c => c.error);
+      if (firstErrorCase) {
+        setRunError(firstErrorCase.error);
       }
-    }, 800);
+    } catch (e) {
+      setRunError(e.response?.data?.error || e.message);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const formatTime = (seconds) => {
@@ -215,7 +199,11 @@ export default function TakeTest() {
   // Anti-cheat: Disable right-click, copy, paste
   const preventCheat = (e) => {
     e.preventDefault();
+    bypassTabSwitch.current = true;
     alert("Security Policy: Copying and pasting is disabled during the assessment.");
+    setTimeout(() => {
+      bypassTabSwitch.current = false;
+    }, 100);
   };
 
   if (loading) return (
@@ -375,21 +363,25 @@ export default function TakeTest() {
                   </div>
                </div>
 
-               <div className="flex-1 relative group overflow-hidden">
-                  <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#222] border-r border-[#333] flex flex-col items-center py-4 select-none pointer-events-none">
-                    {[...Array(100)].map((_, i) => (
-                      <span key={i} className="text-[10px] text-gray-600 font-mono h-[21px]">{i + 1}</span>
-                    ))}
-                  </div>
-                  <textarea 
-                    className={`w-full h-full bg-[#1e1e1e] pl-16 pr-6 py-4 font-mono text-[14px] leading-[21px] text-[#d4d4d4] focus:outline-none resize-none transition-all ${runError ? "border-l-4 border-rose-500" : ""}`}
-                    spellCheck="false"
-                    onCopy={preventCheat}
-                    onPaste={preventCheat}
-                    onCut={preventCheat}
-                    onContextMenu={(e) => e.preventDefault()}
+               <div 
+                 className="flex-1 relative group overflow-hidden"
+                 onCopy={preventCheat}
+                 onPaste={preventCheat}
+                 onCut={preventCheat}
+                 onContextMenu={(e) => e.preventDefault()}
+               >
+                  <Editor
+                    height="100%"
+                    theme="vs-dark"
+                    language={answers[currentQ._id]?.language || "javascript"}
                     value={answers[currentQ._id]?.code || ""}
-                    onChange={(e) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], code: e.target.value }})}
+                    onChange={(val) => setAnswers({...answers, [currentQ._id]: { ...answers[currentQ._id], code: val }})}
+                    options={{
+                      fontSize: 14,
+                      minimap: { enabled: false },
+                      automaticLayout: true,
+                      contextmenu: false,
+                    }}
                   />
                   
                   {/* Error Overlay */}

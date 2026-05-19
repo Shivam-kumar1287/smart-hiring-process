@@ -5,6 +5,7 @@ import User from "../models/userModel.js";
 import Job from "../models/jobModel.js";
 import { sendMail } from "../utils/mailer.js";
 import mongoose from "mongoose";
+import axios from "axios";
 import { evaluateTheoryAnswer, evaluateCodeAnswer } from "../services/testEvaluationService.js";
 
 export const createTest = async (req, res) => {
@@ -280,5 +281,86 @@ export const deleteTest = async (req, res) => {
     res.json({ message: "Test deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete test" });
+  }
+};
+
+const languageMap = {
+  javascript: 63,
+  python: 71,
+  java: 62,
+  cpp: 54
+};
+
+export const runCodeInteractive = async (req, res) => {
+  try {
+    const { code, language, test_cases } = req.body;
+    if (!code) return res.status(400).json({ error: "Code is required" });
+    if (!test_cases || !Array.isArray(test_cases)) return res.status(400).json({ error: "Test cases are required" });
+
+    const languageId = languageMap[language] || 63;
+    const results = [];
+    let passedCount = 0;
+
+    const judge0Url = process.env.JUDGE0_URL || "https://ce.judge0.com";
+    const headers = {};
+    if (process.env.RAPIDAPI_KEY) {
+      headers["X-RapidAPI-Key"] = process.env.RAPIDAPI_KEY;
+      headers["X-RapidAPI-Host"] = process.env.RAPIDAPI_HOST || "judge0-ce.p.rapidapi.com";
+    }
+
+    for (const tc of test_cases) {
+      try {
+        const response = await axios.post(
+          `${process.env.RAPIDAPI_KEY ? "https://judge0-ce.p.rapidapi.com" : judge0Url}/submissions?base64_encoded=false&wait=true`,
+          {
+            source_code: code,
+            language_id: languageId,
+            stdin: tc.input,
+            expected_output: tc.output
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...headers
+            }
+          }
+        );
+
+        const execution = response.data;
+        const status = execution.status?.description || "Unknown";
+        const stdout = (execution.stdout || "").trim();
+        const expected = (tc.output || "").trim();
+        const isCorrect = stdout === expected || execution.status?.id === 3;
+
+        if (isCorrect) passedCount++;
+
+        results.push({
+          input: tc.input,
+          expected: tc.output,
+          actual: stdout || execution.stderr || execution.compile_output || "No output",
+          passed: isCorrect,
+          status,
+          error: execution.stderr || execution.compile_output || null
+        });
+      } catch (err) {
+        results.push({
+          input: tc.input,
+          expected: tc.output,
+          actual: "Execution Error",
+          passed: false,
+          status: "Error",
+          error: err.message
+        });
+      }
+    }
+
+    res.json({
+      passed: passedCount,
+      total: test_cases.length,
+      cases: results
+    });
+  } catch (error) {
+    console.error("Run code error:", error);
+    res.status(500).json({ error: "Code execution failed" });
   }
 };

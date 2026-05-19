@@ -13,4 +13,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const getAssetUrl = (path) => {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+  const cleanPath = path.replace(/\\/g, "/").replace(/^\//, "");
+  return `${base}/${cleanPath}`;
+};
+
 export default api;

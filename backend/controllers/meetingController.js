@@ -145,3 +145,35 @@ export const deleteMeeting = async (req, res) => {
   }
 };
 
+export const sendChatMessage = async (req, res) => {
+  try {
+    const { link } = req.params;
+    const { text } = req.body;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    const meeting = await Meeting.findOne({ meeting_link: link })
+      .populate('hr_id', 'name')
+      .populate('candidate_id', 'name');
+    if (!meeting) return res.status(404).json({ error: "Meeting not found" });
+
+    // Validate that user is either HR or Candidate of this meeting
+    const isHr = meeting.hr_id._id.toString() === userId;
+    const isCandidate = meeting.candidate_id._id.toString() === userId;
+    if (!isHr && !isCandidate) {
+      return res.status(403).json({ error: "Unauthorized to participate in this meeting chat" });
+    }
+
+    const senderName = isHr ? meeting.hr_id.name : meeting.candidate_id.name;
+    const sender = isHr ? 'hr' : 'candidate';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    meeting.chatMessages.push({ sender, senderName, text, time });
+    await meeting.save();
+
+    res.json({ success: true, chatMessages: meeting.chatMessages });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to send message" });
+  }
+};
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import api from "../utils/api";
+import api, { getAssetUrl } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import Navigation from "../components/Navigation";
 
@@ -38,6 +38,7 @@ export default function HRDashboard() {
   const [appSearch, setAppSearch] = useState("");
   const [jobTests, setJobTests] = useState({}); // { jobId: [tests] }
   const [testSubmissions, setTestSubmissions] = useState([]);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
 
   useEffect(() => {
     fetchJobs();
@@ -132,6 +133,8 @@ export default function HRDashboard() {
         const diffMs = end - start;
         const diffMins = Math.round(diffMs / 60000);
         finalMeetingData.duration = diffMins;
+        finalMeetingData.scheduled_at = start.toISOString();
+        finalMeetingData.end_time = end.toISOString();
       }
       await api.post("/meetings/create", finalMeetingData);
       setShowMeetingModal(false);
@@ -605,7 +608,7 @@ export default function HRDashboard() {
 
                             {app.resume_path && (
                               <div className="mt-3 flex items-center gap-4">
-                                <a href={`http://localhost:5000/${app.resume_path.replace(/\\/g, '/')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+                                <a href={getAssetUrl(app.resume_path)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
                                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                                   View Resume
                                 </a>
@@ -677,7 +680,7 @@ export default function HRDashboard() {
                         <div className="flex items-center gap-4">
                           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden">
                             {app.profile_image ? (
-                              <img src={`http://localhost:5000/${app.profile_image.replace(/\\/g, '/')}`} alt="" className="w-full h-full object-cover" />
+                              <img src={getAssetUrl(app.profile_image)} alt="" className="w-full h-full object-cover" />
                             ) : (
                               app.name ? app.name.charAt(0).toUpperCase() : 'U'
                             )}
@@ -807,22 +810,31 @@ export default function HRDashboard() {
                                   <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-lg border border-emerald-100 uppercase tracking-widest">Promoted to R{applications.find(a => a.id === sub.application_id)?.current_round}</span>
                                 ) : (
                                   <>
+                                  <div className="flex gap-2">
                                     <button 
                                       onClick={() => handlePromote(sub.application_id)}
                                       disabled={processing}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black rounded-xl transition-all shadow-md shadow-blue-900/20 active:scale-95 disabled:opacity-50"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black rounded-lg transition-all shadow-md shadow-blue-900/20 active:scale-95 disabled:opacity-50"
                                     >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
                                       PROMOTE
                                     </button>
                                     <button 
                                       onClick={() => handleRejectAssessment(sub.application_id)}
                                       disabled={processing}
-                                      className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-gray-900 text-rose-600 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-[10px] font-black rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-900 text-rose-600 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-[9px] font-black rounded-lg transition-all active:scale-95 disabled:opacity-50"
                                     >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
                                       REJECT
                                     </button>
+                                    <button 
+                                      onClick={() => setSelectedSubmission(sub)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-705 text-[9px] font-black rounded-lg transition-all active:scale-95"
+                                    >
+                                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                      VIEW RESULTS
+                                    </button>
+                                  </div>
                                   </>
                                 )}
                               </div>
@@ -1063,7 +1075,7 @@ export default function HRDashboard() {
               <div className="flex flex-col md:flex-row gap-6 mb-8">
                 <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-blue-500/20 overflow-hidden">
                   {selectedApplicant.profile_image ? (
-                    <img src={`http://localhost:5000/${selectedApplicant.profile_image.replace(/\\/g, '/')}`} alt="" className="w-full h-full object-cover" />
+                    <img src={getAssetUrl(selectedApplicant.profile_image)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     selectedApplicant.user_name?.charAt(0).toUpperCase()
                   )}
@@ -1216,7 +1228,7 @@ export default function HRDashboard() {
                   </div>
                   {selectedApplicant.resume_path && (
                     <a 
-                      href={`http://localhost:5000/${selectedApplicant.resume_path.replace(/\\/g, '/')}`} 
+                      href={getAssetUrl(selectedApplicant.resume_path)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors"
@@ -1230,6 +1242,158 @@ export default function HRDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {selectedSubmission && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-4xl max-h-[85vh] rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Test Assessment Details</h3>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">
+                  Candidate: <span className="text-blue-600">{selectedSubmission.user_id?.name}</span> ({selectedSubmission.user_id?.email})
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedSubmission(null)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500 hover:text-gray-900 dark:hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Body Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Quick Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <p className="text-[10px] text-gray-400 font-black uppercase">Percentage Score</p>
+                  <p className="text-2xl font-black text-blue-600 mt-1">
+                    {selectedSubmission.max_score ? ((selectedSubmission.total_score / selectedSubmission.max_score) * 100).toFixed(1) : 0}%
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <p className="text-[10px] text-gray-400 font-black uppercase">Total Points</p>
+                  <p className="text-2xl font-black text-gray-800 dark:text-white mt-1">
+                    {selectedSubmission.total_score} / {selectedSubmission.max_score || 0}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <p className="text-[10px] text-gray-400 font-black uppercase">Tab Switches (Warning)</p>
+                  <p className={`text-2xl font-black mt-1 ${selectedSubmission.tab_switches > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {selectedSubmission.tab_switches} / 2
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <p className="text-[10px] text-gray-400 font-black uppercase">Status</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase mt-2 ${
+                    selectedSubmission.status === 'submitted' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'
+                  }`}>
+                    {selectedSubmission.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Answers Details */}
+              <div className="space-y-6">
+                <h4 className="text-sm font-black uppercase tracking-widest text-indigo-500">Question-by-Question breakdown</h4>
+                
+                {selectedSubmission.answers && selectedSubmission.answers.map((ans, idx) => {
+                  const qDef = selectedSubmission.test_id?.questions?.find(q => q._id === ans.question_id) || {};
+                  const qText = qDef.question || `Question ${idx + 1}`;
+                  const qType = qDef.type || (ans.code ? 'code' : 'theory');
+
+                  return (
+                    <div key={idx} className="p-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl space-y-4">
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] font-black text-gray-500 rounded uppercase tracking-wider mr-2">
+                            {qType}
+                          </span>
+                          <span className="font-bold text-gray-800 dark:text-white">Q{idx + 1}: {qText}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">
+                            Score: {ans.score} pts
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* MCQ answer display */}
+                      {qType === 'mcq' && (
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Submitted Answer</p>
+                          <p className={`font-bold ${ans.is_correct ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {ans.answer || "No answer submitted"}
+                          </p>
+                          {!ans.is_correct && qDef.correct_answer && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Correct Answer: <span className="font-bold text-emerald-600">{qDef.correct_answer}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Theory answer display */}
+                      {qType === 'theory' && (
+                        <div className="space-y-3">
+                          <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm font-medium leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Submitted Answer</p>
+                            {ans.answer || "No answer submitted"}
+                          </div>
+                          {ans.feedback && (
+                            <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-xs">
+                              <p className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider mb-1">AI Feedback</p>
+                              <p className="text-purple-800 dark:text-purple-300 font-medium">{ans.feedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Code answer display */}
+                      {qType === 'code' && (
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between items-center bg-gray-850 dark:bg-gray-800 text-gray-400 px-4 py-2 rounded-t-2xl text-[10px] font-bold uppercase">
+                              <span>Language: {ans.language || "javascript"}</span>
+                              <span className={ans.is_correct ? "text-emerald-400" : "text-rose-400"}>
+                                {ans.is_correct ? "PERFECT VERDICT" : "FAILED VERDICT"}
+                              </span>
+                            </div>
+                            <pre className="p-4 bg-gray-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-2xl border-x border-b border-gray-800 max-h-80 whitespace-pre">
+                              {ans.code || "// No code submitted"}
+                            </pre>
+                          </div>
+                          {ans.feedback && (
+                            <div className={`p-4 rounded-2xl border text-xs ${
+                              ans.is_correct ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 text-amber-800 dark:text-amber-300'
+                            }`}>
+                              <p className="text-[10px] font-black uppercase tracking-wider mb-1">Sandbox Compilation & Test cases feedback</p>
+                              <p className="font-semibold">{ans.feedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+              <button 
+                onClick={() => setSelectedSubmission(null)}
+                className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-white text-xs font-black rounded-xl transition-colors uppercase tracking-widest"
+              >
+                Close Details
+              </button>
+            </div>
+
           </div>
         </div>
       )}

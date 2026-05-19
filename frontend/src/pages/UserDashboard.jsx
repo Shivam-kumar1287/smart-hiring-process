@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import Navigation from "../components/Navigation";
@@ -35,27 +35,35 @@ export default function UserDashboard() {
   const [interviewEvaluation, setInterviewEvaluation] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
   const [tabSwitches, setTabSwitches] = useState(0);
+  const bypassTabSwitch = useRef(false);
 
   // Anti-cheat for Practice Mode
   useEffect(() => {
     const handleActivity = () => {
+      if (bypassTabSwitch.current) return;
       if ((mcqData.length > 0 || interviewQuestions.length > 0) && !showResults && !interviewEvaluation) {
         setTabSwitches(prev => {
           const newVal = prev + 1;
           if (newVal >= 2) {
+            bypassTabSwitch.current = true;
             alert("Practice session terminated due to multiple tab switches!");
             setMcqData([]);
             setInterviewQuestions([]);
+            bypassTabSwitch.current = false;
             return 0;
           }
+          bypassTabSwitch.current = true;
           alert(`Warning: Tab switch detected! Practice session will be cancelled if you switch again. (${newVal}/2)`);
+          setTimeout(() => {
+            bypassTabSwitch.current = false;
+          }, 100);
           return newVal;
         });
       }
     };
 
     const handleVisibility = () => {
-      if (document.hidden) handleActivity();
+      if (document.hidden && !bypassTabSwitch.current) handleActivity();
     };
 
     window.addEventListener("visibilitychange", handleVisibility);

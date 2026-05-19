@@ -1,6 +1,6 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { createMeeting, getMyMeetings, updateMeetingStatus, getMeetingByLink, saveSignal, clearSignal, deleteMeeting } from "../controllers/meetingController.js";
+import { createMeeting, getMyMeetings, updateMeetingStatus, getMeetingByLink, saveSignal, clearSignal, deleteMeeting, sendChatMessage } from "../controllers/meetingController.js";
 
 const router = express.Router();
 
@@ -11,5 +11,6 @@ router.put("/status/:meetingId", verifyToken, updateMeetingStatus);
 router.delete("/:meetingId", verifyToken, deleteMeeting);
 router.put("/link/:link/signal", verifyToken, saveSignal);
 router.delete("/link/:link/signal", verifyToken, clearSignal);
+router.post("/link/:link/chat", verifyToken, sendChatMessage);
 
 export default router;

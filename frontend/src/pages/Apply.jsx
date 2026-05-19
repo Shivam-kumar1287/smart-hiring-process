@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../utils/api";
+import api, { getAssetUrl } from "../utils/api";
 import Navigation from "../components/Navigation";
 
 export default function Apply() {
@@ -143,7 +143,7 @@ export default function Apply() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-gray-800">
                     {user.profile_image ? (
-                      <img src={`http://localhost:5000/${user.profile_image.replace(/\\/g, '/')}`} alt="Profile" className="w-full h-full object-cover" />
+                      <img src={getAssetUrl(user.profile_image)} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
                       <span className="font-black text-blue-600">{user.name.charAt(0)}</span>
                     )}

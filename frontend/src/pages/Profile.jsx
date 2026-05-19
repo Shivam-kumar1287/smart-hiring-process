@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import api from "../utils/api";
+import api, { getAssetUrl } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import Navigation from "../components/Navigation";
 
@@ -219,7 +219,7 @@ export default function Profile() {
                 <div className="group/avatar relative w-32 h-32 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full mx-auto mb-6 p-1.5 shadow-2xl transition-transform hover:scale-105">
                   <div className="w-full h-full bg-white dark:bg-gray-900 rounded-full flex items-center justify-center overflow-hidden relative">
                     {user.profile_image ? (
-                      <img src={`http://localhost:5000/${user.profile_image.replace(/\\/g, '/')}`} alt="Profile" className="w-full h-full object-cover" />
+                      <img src={getAssetUrl(user.profile_image)} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-5xl font-black bg-gradient-to-br from-purple-500 to-blue-600 bg-clip-text text-transparent">
                         {user.name ? user.name.charAt(0).toUpperCase() : "U"}

@@ -9,7 +9,8 @@ import {
   getSubmissionResults,
   findSubmission,
   getHRSubmissions,
-  deleteTest
+  deleteTest,
+  runCodeInteractive
 } from "../controllers/testController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { allowRoles } from "../middleware/roleMiddleware.js";
@@ -25,6 +26,7 @@ router.get("/find", verifyToken, findSubmission);
 
 
 // Candidate Routes
+router.post("/run", verifyToken, runCodeInteractive);
 router.get("/start/:test_id", verifyToken, startTest);
 router.put("/tab-switch/:submissionId", verifyToken, updateTabSwitch);
 router.post("/answer/:submissionId", verifyToken, submitAnswer);
