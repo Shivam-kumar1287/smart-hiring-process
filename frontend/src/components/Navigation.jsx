@@ -17,7 +17,7 @@ export default function Navigation() {
 
   return (
     <nav className="sticky top-0 z-50 w-full mb-8 animate-fadeIn">
-      <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-300"></div>
+      <div className="absolute inset-0 bg-white dark:bg-gray-900 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-sm transition-colors duration-300"></div>
       
       <div className="relative max-w-6xl mx-auto px-6 sm:px-12 lg:px-16">
         <div className="flex justify-between items-center h-16">

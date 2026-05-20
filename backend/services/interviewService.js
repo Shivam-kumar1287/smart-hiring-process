@@ -34,7 +34,7 @@ export const evaluateAnswer = async ({ question, userAnswer, jobRole, difficulty
       Return ONLY the JSON object.
     `;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await getGroq().chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },
@@ -61,7 +61,7 @@ export const generateInterviewQuestions = async ({ jobRole, company, jd, count, 
       Return ONLY the JSON object like this: { "questions": [...] }
     `;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await getGroq().chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
       response_format: { type: "json_object" },

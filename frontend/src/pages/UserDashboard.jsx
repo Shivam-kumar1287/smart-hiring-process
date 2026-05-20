@@ -36,6 +36,7 @@ export default function UserDashboard() {
   const [evaluating, setEvaluating] = useState(false);
   const [tabSwitches, setTabSwitches] = useState(0);
   const bypassTabSwitch = useRef(false);
+  const recognitionRef = useRef(null);
 
   // Anti-cheat for Practice Mode
   useEffect(() => {
@@ -352,21 +353,41 @@ export default function UserDashboard() {
     synth.speak(utter);
   };
 
-  const startListening = () => {
+  const toggleListening = () => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsRecording(false);
+      return;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Speech recognition not supported in this browser.");
       return;
     }
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let finalTranscript = transcript ? transcript + " " : "";
 
     recognition.onstart = () => setIsRecording(true);
     recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      setTranscript(text);
+      let interimTranscript = "";
+      let newlyFinal = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          newlyFinal += event.results[i][0].transcript + " ";
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+      finalTranscript += newlyFinal;
+      setTranscript(finalTranscript + interimTranscript);
     };
     recognition.onerror = () => setIsRecording(false);
     recognition.onend = () => setIsRecording(false);
@@ -1164,29 +1185,30 @@ export default function UserDashboard() {
                       </h3>
                     </div>
 
-                    <div className="relative inline-block">
+                    <div className="relative inline-flex flex-col items-center">
                       <div className={`absolute inset-0 bg-indigo-500 rounded-full blur-3xl opacity-20 animate-pulse ${isRecording ? 'scale-150' : 'scale-100'}`}></div>
                       <button 
-                        onClick={startListening}
-                        disabled={isRecording}
+                        onClick={toggleListening}
                         className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-xl hover:scale-105 active:scale-95 ${isRecording ? 'bg-rose-500 text-white' : 'bg-indigo-600 text-white'}`}
                       >
                         {isRecording ? (
-                          <div className="flex gap-1">
-                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></span>
-                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                          </div>
+                          <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
                         ) : (
                           <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                         )}
                       </button>
+                      <span className="mt-6 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-500 dark:text-gray-400 rounded-full shadow-sm">
+                         {isRecording ? "Click to Stop Speaking" : "Click to Start Speaking"}
+                      </span>
                     </div>
 
                     <div className="space-y-6">
-                      <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 min-h-[100px] flex items-center justify-center italic text-gray-500 dark:text-gray-400">
-                        {transcript || "Click the microphone and start speaking your answer..."}
-                      </div>
+                      <textarea 
+                        value={transcript}
+                        onChange={(e) => setTranscript(e.target.value)}
+                        placeholder="Click the microphone and start speaking your answer..."
+                        className="w-full p-6 bg-gray-50 dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 min-h-[150px] max-h-[300px] text-gray-700 dark:text-gray-300 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all leading-relaxed text-left"
+                      />
 
                       <button 
                         onClick={handleNextInterviewQuestion}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "../utils/api";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import bgVideo from "../assets/12442569_1920_1080_30fps.mp4";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -55,11 +56,19 @@ export default function Register() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 bg-gray-900 overflow-hidden">
-      {/* Dynamic Background */}
-      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px] opacity-40 animate-pulse-slow object-delay"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px] opacity-40 animate-pulse-slow"></div>
+      {/* Video Background */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src={bgVideo} type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-gray-700/40"></div>
 
-      <div className="relative w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-3xl shadow-2xl animate-slideInUp">
+      <div className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-3xl shadow-2xl animate-slideInUp">
         <div className="text-center mb-10">
           <Logo size="xl" light={true} showText={false} className="mb-6 drop-shadow-xl" />
           <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
