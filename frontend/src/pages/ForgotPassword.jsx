@@ -9,6 +9,7 @@ export default function ForgotPassword() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [otpSent, setOtpSent] = useState(false);
 
   const sendOtp = async () => {
