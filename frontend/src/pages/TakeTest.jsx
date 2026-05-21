@@ -109,6 +109,35 @@ export default function TakeTest() {
     };
   }, [submissionId, loading, navigate]);
 
+  const navigateToQuestion = async (targetIdx) => {
+    if (targetIdx === currentQuestionIdx) return;
+    const q = test.questions[currentQuestionIdx];
+    const answerData = answers[q._id] || {};
+    
+    setSubmitting(true);
+    try {
+      await api.post(`/tests/answer/${submissionId}`, {
+        question_id: q._id,
+        ...answerData
+      });
+      setCurrentQuestionIdx(targetIdx);
+    } catch (err) {
+      bypassTabSwitch.current = true;
+      alert("Failed to save answer");
+      setTimeout(() => {
+        bypassTabSwitch.current = false;
+      }, 100);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePrev = async () => {
+    if (currentQuestionIdx > 0) {
+      await navigateToQuestion(currentQuestionIdx - 1);
+    }
+  };
+
   const handleNext = async () => {
     const q = test.questions[currentQuestionIdx];
     const answerData = answers[q._id] || {};
@@ -226,9 +255,21 @@ export default function TakeTest() {
           </div>
           <div className="h-4 w-[1px] bg-[#3e3e3e]"></div>
           <h1 className="text-sm font-bold truncate max-w-[300px]">{test.title}</h1>
-          <div className="flex gap-1 ml-4">
+          <div className="flex gap-1.5 ml-4">
              {test.questions.map((_, i) => (
-               <div key={i} className={`w-6 h-1.5 rounded-full transition-all ${i === currentQuestionIdx ? "bg-blue-500" : i < currentQuestionIdx ? "bg-emerald-500" : "bg-[#3e3e3e]"}`}></div>
+               <button
+                 key={i}
+                 onClick={() => navigateToQuestion(i)}
+                 disabled={submitting}
+                 title={`Go to Question ${i + 1}`}
+                 className={`w-6 h-2 rounded-full transition-all cursor-pointer disabled:cursor-not-allowed outline-none border-none hover:scale-y-125 ${
+                   i === currentQuestionIdx 
+                     ? "bg-blue-500 shadow-md shadow-blue-500/50" 
+                     : i < currentQuestionIdx 
+                       ? "bg-emerald-500 hover:bg-emerald-400" 
+                       : "bg-[#3e3e3e] hover:bg-[#555]"
+                 }`}
+               />
              ))}
           </div>
         </div>
@@ -452,6 +493,15 @@ export default function TakeTest() {
                     >
                       Run Code
                     </button>
+                    {currentQuestionIdx > 0 && (
+                      <button 
+                        onClick={handlePrev}
+                        disabled={submitting}
+                        className="px-4 py-1 bg-[#333] hover:bg-[#444] text-gray-300 text-[11px] font-bold rounded transition-all border border-[#444] active:scale-95 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                    )}
                     <button 
                       onClick={handleNext}
                       disabled={submitting}
@@ -509,13 +559,24 @@ export default function TakeTest() {
 
             <div className="flex justify-between items-center">
               <p className="text-gray-600 text-xs italic font-medium">Auto-saving your progress...</p>
-              <button 
-                onClick={handleNext}
-                disabled={submitting}
-                className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-900/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
-              >
-                {submitting ? "Processing..." : currentQuestionIdx === test.questions.length - 1 ? "Finish Assessment" : "Next Question"}
-              </button>
+              <div className="flex gap-4">
+                {currentQuestionIdx > 0 && (
+                  <button 
+                    onClick={handlePrev}
+                    disabled={submitting}
+                    className="px-8 py-4 bg-[#333] hover:bg-[#444] text-white rounded-2xl font-black text-xl shadow-2xl border border-[#444] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    Previous Question
+                  </button>
+                )}
+                <button 
+                  onClick={handleNext}
+                  disabled={submitting}
+                  className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-900/40 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {submitting ? "Processing..." : currentQuestionIdx === test.questions.length - 1 ? "Finish Assessment" : "Next Question"}
+                </button>
+              </div>
             </div>
           </div>
         )}

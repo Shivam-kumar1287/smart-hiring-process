@@ -83,14 +83,22 @@ export const startTest = async (req, res) => {
     if (!test) return res.status(404).json({ error: "Test not found" });
 
     const now = new Date();
-    if (now < new Date(test.start_time) || now > new Date(test.end_time)) {
+    if (process.env.NODE_ENV === 'production' && (now < new Date(test.start_time) || now > new Date(test.end_time))) {
       return res.status(400).json({ error: "Test is not active currently" });
+    } else if (now < new Date(test.start_time) || now > new Date(test.end_time)) {
+      console.log(`[DEV MODE] Bypassing active time window check for test: ${test.title}`);
     }
 
     // Check if already submitted or cancelled
     let submission = await TestSubmission.findOne({ test_id, user_id });
     if (submission && (submission.status === 'submitted' || submission.status === 'cancelled')) {
-      return res.status(400).json({ error: "Test already attempted or cancelled" });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV MODE] Deleting existing submitted/cancelled submission ${submission._id} to allow re-testing.`);
+        await TestSubmission.deleteOne({ _id: submission._id });
+        submission = null;
+      } else {
+        return res.status(400).json({ error: "Test already attempted or cancelled" });
+      }
     }
 
     if (!submission) {

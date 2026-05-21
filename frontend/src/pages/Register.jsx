@@ -66,7 +66,7 @@ export default function Register() {
       >
         <source src={bgVideo} type="video/mp4" />
       </video>
-      <div className="absolute inset-0 bg-gray-700/40"></div>
+      <div className="absolute inset-0 bg-gray-900/40"></div>
 
       <div className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 p-8 rounded-3xl shadow-2xl animate-slideInUp">
         <div className="text-center mb-10">
