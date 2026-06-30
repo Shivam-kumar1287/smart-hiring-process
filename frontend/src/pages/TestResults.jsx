@@ -98,6 +98,77 @@ export default function TestResults() {
                     </div>
                   </div>
                 </div>
+
+                {question.type === 'code' && ans.cases && ans.cases.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-gray-100 space-y-4 animate-fadeIn">
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex justify-between items-center">
+                      <span>Test Case Results</span>
+                      <span className="text-blue-600 font-bold bg-blue-50 px-2.5 py-1 rounded-full text-[10px] tracking-normal">
+                        {ans.cases.filter(c => c.passed).length} / {ans.cases.length} Passed
+                      </span>
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {ans.cases.map((tc, tcIdx) => {
+                        let statusColor = "text-red-600 bg-red-50 border-red-100";
+                        if (tc.status === "Accepted") statusColor = "text-emerald-600 bg-emerald-50 border-emerald-100";
+                        else if (tc.status === "Time Limit Exceeded") statusColor = "text-amber-600 bg-amber-50 border-amber-100";
+                        else if (tc.status === "Runtime Error") statusColor = "text-pink-600 bg-pink-50 border-pink-100";
+                        else if (tc.status === "Compilation Error") statusColor = "text-gray-600 bg-gray-50 border-gray-100";
+
+                        return (
+                          <div key={tcIdx} className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                            tc.passed ? "bg-white border-gray-100 hover:border-emerald-200" : "bg-rose-50/10 border-rose-100 hover:border-rose-200"
+                          }`}>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="text-xs font-black text-gray-400">Test {tcIdx + 1}</span>
+                              
+                              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+                                {tc.status || (tc.passed ? "Accepted" : "Wrong Answer")}
+                              </span>
+                              
+                              {tc.is_hidden && (
+                                <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                  Hidden
+                                </span>
+                              )}
+                              
+                              {tc.status !== "Compilation Error" && tc.status !== "Runtime Error" && !tc.error && (
+                                <div className="text-xs font-mono text-gray-500 flex flex-wrap items-center gap-2">
+                                  <span>Input: <code className="bg-gray-100 px-1 rounded text-gray-800 font-mono">{tc.input}</code></span>
+                                  <span className="text-gray-300">|</span>
+                                  <span>Expected: <code className="bg-gray-100 px-1 rounded text-emerald-700 font-mono">{tc.expected}</code></span>
+                                  <span className="text-gray-300">|</span>
+                                  <span>Actual: <code className={`px-1 rounded font-mono ${tc.passed ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"}`}>{tc.actual}</code></span>
+                                </div>
+                              )}
+
+                              {(tc.status === "Compilation Error" || tc.status === "Runtime Error" || tc.error) && (
+                                <div className="text-xs font-mono text-rose-600 break-all font-bold">
+                                  Error: {tc.error || "Failed to execute"}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="shrink-0 flex items-center">
+                              {tc.passed ? (
+                                <span className="flex items-center gap-1.5 text-xs font-black text-emerald-600">
+                                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                  Passed
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 text-xs font-black text-rose-600">
+                                  <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                  Failed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

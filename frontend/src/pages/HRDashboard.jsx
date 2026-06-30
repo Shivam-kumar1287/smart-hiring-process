@@ -1353,18 +1353,17 @@ export default function HRDashboard() {
                           )}
                         </div>
                       )}
-
                       {/* Code answer display */}
                       {qType === 'code' && (
                         <div className="space-y-3">
                           <div>
-                            <div className="flex justify-between items-center bg-gray-850 dark:bg-gray-800 text-gray-400 px-4 py-2 rounded-t-2xl text-[10px] font-bold uppercase">
+                            <div className="flex justify-between items-center bg-gray-855 dark:bg-gray-800 text-gray-400 px-4 py-2 rounded-t-2xl text-[10px] font-bold uppercase">
                               <span>Language: {ans.language || "javascript"}</span>
                               <span className={ans.is_correct ? "text-emerald-400" : "text-rose-400"}>
                                 {ans.is_correct ? "PERFECT VERDICT" : "FAILED VERDICT"}
                               </span>
                             </div>
-                            <pre className="p-4 bg-gray-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-2xl border-x border-b border-gray-800 max-h-80 whitespace-pre">
+                            <pre className="p-4 bg-gray-955 dark:bg-gray-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-2xl border-x border-b border-gray-200 dark:border-gray-800 max-h-80 whitespace-pre">
                               {ans.code || "// No code submitted"}
                             </pre>
                           </div>
@@ -1374,6 +1373,72 @@ export default function HRDashboard() {
                             }`}>
                               <p className="text-[10px] font-black uppercase tracking-wider mb-1">Sandbox Compilation & Test cases feedback</p>
                               <p className="font-semibold">{ans.feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Test Case Details Breakdown */}
+                          {ans.cases && ans.cases.length > 0 && (
+                            <div className="space-y-2 mt-4">
+                              <p className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Sandbox Test Case Execution Breakdown</p>
+                              <div className="grid grid-cols-1 gap-2">
+                                {ans.cases.map((tc, tcIdx) => {
+                                  let statusColor = "text-red-600 bg-red-50 border-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30";
+                                  if (tc.status === "Accepted") statusColor = "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30";
+                                  else if (tc.status === "Time Limit Exceeded") statusColor = "text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30";
+                                  else if (tc.status === "Runtime Error") statusColor = "text-pink-600 bg-pink-50 border-pink-100 dark:bg-pink-950/40 dark:text-pink-400 dark:border-pink-900/30";
+                                  else if (tc.status === "Compilation Error") statusColor = "text-gray-600 bg-gray-50 border-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
+
+                                  return (
+                                    <div key={tcIdx} className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                                      tc.passed ? "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-emerald-200 dark:hover:border-emerald-800" : "bg-rose-50/10 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/30 hover:border-rose-200 dark:hover:border-rose-800"
+                                    }`}>
+                                      <div className="flex flex-wrap items-center gap-3">
+                                        <span className="text-xs font-black text-gray-400">Test {tcIdx + 1}</span>
+                                        
+                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+                                          {tc.status || (tc.passed ? "Accepted" : "Wrong Answer")}
+                                        </span>
+                                        
+                                        {tc.is_hidden && (
+                                          <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                            Hidden
+                                          </span>
+                                        )}
+                                        
+                                        {tc.status !== "Compilation Error" && tc.status !== "Runtime Error" && !tc.error && (
+                                          <div className="text-xs font-mono text-gray-500 flex flex-wrap items-center gap-2">
+                                            <span>Input: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-gray-800 dark:text-gray-300 font-mono">{tc.input}</code></span>
+                                            <span className="text-gray-300 dark:text-gray-700">|</span>
+                                            <span>Expected: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-emerald-700 dark:text-emerald-400 font-mono">{tc.expected}</code></span>
+                                            <span className="text-gray-300 dark:text-gray-700">|</span>
+                                            <span>Actual: <code className={`px-1 rounded font-mono ${tc.passed ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20"}`}>{tc.actual}</code></span>
+                                          </div>
+                                        )}
+
+                                        {(tc.status === "Compilation Error" || tc.status === "Runtime Error" || tc.error) && (
+                                          <div className="text-xs font-mono text-rose-600 dark:text-rose-400 break-all font-bold">
+                                            Error: {tc.error || "Failed to execute"}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="shrink-0 flex items-center">
+                                        {tc.passed ? (
+                                          <span className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                                            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                            Passed
+                                          </span>
+                                        ) : (
+                                          <span className="flex items-center gap-1.5 text-xs font-black text-rose-600 dark:text-rose-400">
+                                            <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            Failed
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           )}
                         </div>

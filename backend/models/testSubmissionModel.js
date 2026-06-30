@@ -11,7 +11,16 @@ const testSubmissionSchema = new mongoose.Schema({
     language: { type: String }, // For Coding
     score: { type: Number, default: 0 },
     feedback: { type: String },
-    is_correct: { type: Boolean, default: false }
+    is_correct: { type: Boolean, default: false },
+    cases: [{
+      input: String,
+      expected: String,
+      actual: String,
+      passed: Boolean,
+      status: String,
+      error: String,
+      is_hidden: { type: Boolean, default: false }
+    }]
   }],
   tab_switches: { type: Number, default: 0 },
   status: { type: String, enum: ['started', 'submitted', 'cancelled'], default: 'started' },

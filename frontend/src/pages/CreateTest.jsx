@@ -18,6 +18,71 @@ export default function CreateTest() {
     questions: []
   });
 
+  const [activeLangMap, setActiveLangMap] = useState({});
+  const [aiLoading, setAiLoading] = useState({});
+
+  const handleAIGenerateBoilerplates = async (idx) => {
+    const q = testData.questions[idx];
+    if (!q.question) {
+      alert("Please enter a question description first so the AI has context to generate boilerplates!");
+      return;
+    }
+
+    const activeLang = activeLangMap[idx] || "javascript";
+    const activeCodeObj = q.boilerplates?.find(b => b.language === activeLang);
+    const existingBoilerplate = activeCodeObj ? activeCodeObj.code : "";
+
+    setAiLoading(prev => ({ ...prev, [idx]: { ...prev[idx], boilerplates: true } }));
+    try {
+      const res = await api.post("/tests/generate-boilerplates", {
+        question: q.question,
+        existingBoilerplate,
+        existingLanguage: activeLang
+      });
+
+      const updatedQuestions = [...testData.questions];
+      updatedQuestions[idx].boilerplates = [
+        { language: "javascript", code: res.data.javascript || "" },
+        { language: "python", code: res.data.python || "" },
+        { language: "java", code: res.data.java || "" },
+        { language: "cpp", code: res.data.cpp || "" }
+      ];
+      setTestData({ ...testData, questions: updatedQuestions });
+      alert("AI boilerplates generated successfully for JS, Python, Java, and C++!");
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to generate boilerplates");
+    } finally {
+      setAiLoading(prev => ({ ...prev, [idx]: { ...prev[idx], boilerplates: false } }));
+    }
+  };
+
+  const handleAIGenerateTestCases = async (idx) => {
+    const q = testData.questions[idx];
+    if (!q.question) {
+      alert("Please enter a question description first so the AI has context to generate test cases!");
+      return;
+    }
+
+    setAiLoading(prev => ({ ...prev, [idx]: { ...prev[idx], testcases: true } }));
+    try {
+      const res = await api.post("/tests/generate-testcases", {
+        question: q.question
+      });
+
+      const updatedQuestions = [...testData.questions];
+      updatedQuestions[idx].test_cases = res.data.map(tc => ({
+        input: tc.input || "",
+        output: tc.output || "",
+        is_hidden: tc.is_hidden || false
+      }));
+      setTestData({ ...testData, questions: updatedQuestions });
+      alert(`AI generated ${res.data.length} test cases successfully!`);
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to generate test cases");
+    } finally {
+      setAiLoading(prev => ({ ...prev, [idx]: { ...prev[idx], testcases: false } }));
+    }
+  };
 
   const addQuestion = (type) => {
     const newQuestion = {
@@ -26,7 +91,13 @@ export default function CreateTest() {
       points: 1,
       options: type === "mcq" ? ["", "", "", ""] : [],
       correct_answer: "",
-      test_cases: type === "code" ? [{ input: "", output: "", is_hidden: false }] : []
+      test_cases: type === "code" ? [{ input: "", output: "", is_hidden: false }] : [],
+      boilerplates: type === "code" ? [
+        { language: "javascript", code: "// Write JavaScript here\nfunction solution(input) {\n  return input;\n}" },
+        { language: "python", code: "# Write Python here\ndef solution(input):\n    return input" },
+        { language: "java", code: "// Write Java here\nimport java.util.*;\n\npublic class main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write logic here\n    }\n}" },
+        { language: "cpp", code: "// Write C++ here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write logic here\n    return 0;\n}" }
+      ] : []
     };
     setTestData({ ...testData, questions: [...testData.questions, newQuestion] });
   };
@@ -247,6 +318,96 @@ export default function CreateTest() {
                     >
                       + Add Test Case
                     </button>
+                  </div>
+
+                  {/* Boilerplate Templates Section */}
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-bold">Boilerplate Code Templates</h4>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={aiLoading[idx]?.boilerplates}
+                          onClick={() => handleAIGenerateBoilerplates(idx)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black rounded-lg transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 uppercase tracking-wider cursor-pointer"
+                        >
+                          {aiLoading[idx]?.boilerplates ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Generating...
+                            </>
+                          ) : (
+                            "✨ AI Boilerplates"
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={aiLoading[idx]?.testcases}
+                          onClick={() => handleAIGenerateTestCases(idx)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-lg transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 uppercase tracking-wider cursor-pointer"
+                        >
+                          {aiLoading[idx]?.testcases ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Generating...
+                            </>
+                          ) : (
+                            "✨ AI Test Cases"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Language Tabs */}
+                    <div className="flex border-b border-gray-200">
+                      {["javascript", "python", "java", "cpp"].map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => {
+                            const updatedLangs = { ...activeLangMap };
+                            updatedLangs[idx] = lang;
+                            setActiveLangMap(updatedLangs);
+                          }}
+                          className={`px-4 py-2 text-[10px] font-black uppercase border-b-2 transition-all cursor-pointer ${
+                            (activeLangMap[idx] || "javascript") === lang
+                              ? "text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400"
+                              : "text-gray-400 border-transparent hover:text-gray-600"
+                          }`}
+                        >
+                          {lang === "cpp" ? "C++" : lang}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                        Template Code (Active Language: {(activeLangMap[idx] || "javascript")})
+                      </label>
+                      <textarea
+                        rows={8}
+                        className="w-full p-4 bg-gray-900 text-emerald-400 font-mono text-xs border border-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none whitespace-pre resize-y"
+                        value={
+                          q.boilerplates?.find(
+                            (b) => b.language === (activeLangMap[idx] || "javascript")
+                          )?.code || ""
+                        }
+                        onChange={(e) => {
+                          const activeLang = activeLangMap[idx] || "javascript";
+                          const updatedQs = [...testData.questions];
+                          if (!updatedQs[idx].boilerplates) {
+                            updatedQs[idx].boilerplates = [];
+                          }
+                          const bp = updatedQs[idx].boilerplates.find(b => b.language === activeLang);
+                          if (bp) {
+                            bp.code = e.target.value;
+                          } else {
+                            updatedQs[idx].boilerplates.push({ language: activeLang, code: e.target.value });
+                          }
+                          setTestData({ ...testData, questions: updatedQs });
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

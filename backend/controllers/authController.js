@@ -56,7 +56,10 @@ export const register = async (req, res) => {
       </div>
     `;
 
-    await sendMail(email, "Registration OTP - Smart Job Tracker", "", emailHtml);
+    const emailSent = await sendMail(email, "Registration OTP - Smart Job Tracker", "", emailHtml);
+    if (!emailSent) {
+      return res.status(500).json("Failed to send OTP email. Please check backend SMTP configurations.");
+    }
 
     res.json({ message: "OTP sent to your email. Please verify to complete registration.", requiresOtp: true, email });
   } catch (error) {
@@ -156,7 +159,10 @@ export const forgotPassword = async (req, res) => {
       </div>
     `;
 
-    await sendMail(email, "Password Reset OTP - Smart Job Tracker", "", emailHtml);
+    const emailSent = await sendMail(email, "Password Reset OTP - Smart Job Tracker", "", emailHtml);
+    if (!emailSent) {
+      return res.status(500).json("Failed to send password reset OTP email. Please check backend SMTP configurations.");
+    }
 
     res.json({ message: "OTP sent to your email." });
   } catch (error) {

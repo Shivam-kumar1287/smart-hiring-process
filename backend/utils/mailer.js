@@ -21,7 +21,6 @@ const getTransporter = () => {
 
 
 export const sendMail = async (to, subject, text, html = "", attachments = []) => {
-
   try {
     const transport = getTransporter();
     await transport.sendMail({
@@ -33,12 +32,9 @@ export const sendMail = async (to, subject, text, html = "", attachments = []) =
       attachments
     });
     console.log("Email sent successfully");
-
-
+    return true;
   } catch (error) {
-
     console.error("Email sending failed:", error);
-
+    return false;
   }
-
 };

@@ -18,6 +18,10 @@ const testSchema = new mongoose.Schema({
       output: String,
       is_hidden: { type: Boolean, default: false }
     }],
+    boilerplates: [{ // for coding questions
+      language: { type: String, required: true },
+      code: { type: String, required: true }
+    }],
     points: { type: Number, default: 1 }
   }],
   show_marks: { type: Boolean, default: false },

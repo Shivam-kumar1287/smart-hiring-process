@@ -7,6 +7,7 @@ import { sendMail } from "../utils/mailer.js";
 import mongoose from "mongoose";
 import axios from "axios";
 import { evaluateTheoryAnswer, evaluateCodeAnswer } from "../services/testEvaluationService.js";
+import { generateAIContent, generateAITestCases } from "../services/boilerplateService.js";
 
 export const createTest = async (req, res) => {
   try {
@@ -130,11 +131,17 @@ export const startTest = async (req, res) => {
         duration: test.duration,
         show_marks: test.show_marks,
         questions: test.questions.map(q => ({
-
           _id: q._id,
           type: q.type,
           question: q.question,
-          options: q.options
+          options: q.options,
+          test_cases: q.test_cases ? q.test_cases.map(tc => {
+            if (tc.is_hidden) {
+              return { _id: tc._id, is_hidden: true };
+            }
+            return { _id: tc._id, input: tc.input, output: tc.output, is_hidden: false };
+          }) : [],
+          boilerplates: q.boilerplates || []
         }))
       }
     });
@@ -180,6 +187,7 @@ export const submitAnswer = async (req, res) => {
     let score = 0;
     let feedback = "";
     let is_correct = false;
+    let cases = [];
 
     if (question.type === 'mcq') {
       if (answer === question.correct_answer) {
@@ -196,11 +204,15 @@ export const submitAnswer = async (req, res) => {
       score = evaluation.score * (question.points || 1);
       feedback = `${evaluation.passed_tests}/${evaluation.total_tests} tests passed. ${evaluation.feedback}`;
       is_correct = evaluation.is_perfect;
+      cases = evaluation.cases || [];
     }
 
     // Update or add answer
     const existingIndex = submission.answers.findIndex(a => a.question_id.toString() === question_id);
     const answerData = { question_id, answer, code, language, score, feedback, is_correct };
+    if (question.type === 'code') {
+      answerData.cases = cases;
+    }
 
     if (existingIndex > -1) {
       submission.answers[existingIndex] = answerData;
@@ -235,9 +247,46 @@ export const finalizeSubmission = async (req, res) => {
 export const getSubmissionResults = async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const submission = await TestSubmission.findById(submissionId).populate('test_id user_id');
-    res.json(submission);
+    const submission = await TestSubmission.findById(submissionId)
+      .populate('test_id user_id')
+      .populate({
+        path: 'test_id',
+        populate: { path: 'job_id', select: 'title' }
+      });
+    
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+    // Determine if user is HR or Admin
+    const isHrOrAdmin = req.user && (req.user.role === 'hr' || req.user.role === 'admin');
+
+    const sanitizedSubmission = submission.toObject();
+
+    // Redact hidden test case details for regular candidates
+    if (!isHrOrAdmin) {
+      sanitizedSubmission.answers = sanitizedSubmission.answers.map(ans => {
+        if (ans.cases) {
+          ans.cases = ans.cases.map(c => {
+            if (c.is_hidden) {
+              return {
+                passed: c.passed,
+                status: c.status,
+                is_hidden: true,
+                input: "[Hidden Test Case]",
+                expected: "[Hidden Test Case]",
+                actual: c.passed ? "[Output matches expected]" : "[Output differs or failed]",
+                error: c.error ? "Execution failed" : null
+              };
+            }
+            return c;
+          });
+        }
+        return ans;
+      });
+    }
+
+    res.json(sanitizedSubmission);
   } catch (error) {
+    console.error("Error fetching submission results:", error);
     res.status(500).json({ error: "Failed to fetch results" });
   }
 };
@@ -292,83 +341,74 @@ export const deleteTest = async (req, res) => {
   }
 };
 
-const languageMap = {
-  javascript: 63,
-  python: 71,
-  java: 62,
-  cpp: 54
-};
-
 export const runCodeInteractive = async (req, res) => {
   try {
     const { code, language, test_cases } = req.body;
     if (!code) return res.status(400).json({ error: "Code is required" });
     if (!test_cases || !Array.isArray(test_cases)) return res.status(400).json({ error: "Test cases are required" });
 
-    const languageId = languageMap[language] || 63;
-    const results = [];
-    let passedCount = 0;
-
-    const judge0Url = process.env.JUDGE0_URL || "https://ce.judge0.com";
-    const headers = {};
-    if (process.env.RAPIDAPI_KEY) {
-      headers["X-RapidAPI-Key"] = process.env.RAPIDAPI_KEY;
-      headers["X-RapidAPI-Host"] = process.env.RAPIDAPI_HOST || "judge0-ce.p.rapidapi.com";
-    }
-
-    for (const tc of test_cases) {
-      try {
-        const response = await axios.post(
-          `${process.env.RAPIDAPI_KEY ? "https://judge0-ce.p.rapidapi.com" : judge0Url}/submissions?base64_encoded=false&wait=true`,
-          {
-            source_code: code,
-            language_id: languageId,
-            stdin: tc.input,
-            expected_output: tc.output
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...headers
-            }
-          }
-        );
-
-        const execution = response.data;
-        const status = execution.status?.description || "Unknown";
-        const stdout = (execution.stdout || "").trim();
-        const expected = (tc.output || "").trim();
-        const isCorrect = stdout === expected || execution.status?.id === 3;
-
-        if (isCorrect) passedCount++;
-
-        results.push({
-          input: tc.input,
-          expected: tc.output,
-          actual: stdout || execution.stderr || execution.compile_output || "No output",
-          passed: isCorrect,
-          status,
-          error: execution.stderr || execution.compile_output || null
-        });
-      } catch (err) {
-        results.push({
-          input: tc.input,
-          expected: tc.output,
-          actual: "Execution Error",
-          passed: false,
-          status: "Error",
-          error: err.message
-        });
-      }
-    }
+    // Re-use evaluateCodeAnswer to run the code on the provided test cases
+    const evaluation = await evaluateCodeAnswer(null, code, language, test_cases);
 
     res.json({
-      passed: passedCount,
-      total: test_cases.length,
-      cases: results
+      passed: evaluation.passed_tests,
+      total: evaluation.total_tests,
+      cases: evaluation.cases
     });
   } catch (error) {
     console.error("Run code error:", error);
     res.status(500).json({ error: "Code execution failed" });
+  }
+};
+
+export const generateAIBoilerplates = async (req, res) => {
+  try {
+    const { question, existingBoilerplate, existingLanguage } = req.body;
+    if (!question) {
+      return res.status(400).json({ error: "Question description is required" });
+    }
+    const boilerplates = await generateAIContent(question, existingBoilerplate, existingLanguage);
+    res.json(boilerplates);
+  } catch (error) {
+    console.error("Generate AI Boilerplates error:", error);
+    res.status(500).json({ error: "Failed to generate boilerplates: " + error.message });
+  }
+};
+
+export const generateAITestCasesController = async (req, res) => {
+  try {
+    const { question } = req.body;
+    if (!question) {
+      return res.status(400).json({ error: "Question description is required" });
+    }
+    const testCases = await generateAITestCases(question);
+    res.json(testCases);
+  } catch (error) {
+    console.error("Generate AI Testcases error:", error);
+    res.status(500).json({ error: "Failed to generate test cases: " + error.message });
+  }
+};
+
+export const runCustomCode = async (req, res) => {
+  try {
+    const { code, language, input } = req.body;
+    if (!code) return res.status(400).json({ error: "Code is required" });
+
+    // Reuse Piston/Judge0 logic via evaluateCodeAnswer with a single test case
+    const evaluation = await evaluateCodeAnswer(null, code, language, [{ input, output: "" }]);
+
+    if (evaluation.cases && evaluation.cases.length > 0) {
+      const result = evaluation.cases[0];
+      res.json({
+        stdout: result.actual,
+        status: result.status,
+        error: result.error
+      });
+    } else {
+      res.status(500).json({ error: "Execution completed but returned no results" });
+    }
+  } catch (error) {
+    console.error("Run custom code error:", error);
+    res.status(500).json({ error: "Code execution failed: " + error.message });
   }
 };

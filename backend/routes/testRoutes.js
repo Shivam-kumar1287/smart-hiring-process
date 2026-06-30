@@ -10,7 +10,10 @@ import {
   findSubmission,
   getHRSubmissions,
   deleteTest,
-  runCodeInteractive
+  runCodeInteractive,
+  generateAIBoilerplates,
+  generateAITestCasesController,
+  runCustomCode
 } from "../controllers/testController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { allowRoles } from "../middleware/roleMiddleware.js";
@@ -23,10 +26,13 @@ router.delete("/:test_id", verifyToken, allowRoles("hr"), deleteTest);
 router.get("/job/:job_id", verifyToken, getJobTests);
 router.get("/submissions", verifyToken, allowRoles("hr"), getHRSubmissions);
 router.get("/find", verifyToken, findSubmission);
+router.post("/generate-boilerplates", verifyToken, allowRoles("hr"), generateAIBoilerplates);
+router.post("/generate-testcases", verifyToken, allowRoles("hr"), generateAITestCasesController);
 
 
 // Candidate Routes
 router.post("/run", verifyToken, runCodeInteractive);
+router.post("/run-custom", verifyToken, runCustomCode);
 router.get("/start/:test_id", verifyToken, startTest);
 router.put("/tab-switch/:submissionId", verifyToken, updateTabSwitch);
 router.post("/answer/:submissionId", verifyToken, submitAnswer);
