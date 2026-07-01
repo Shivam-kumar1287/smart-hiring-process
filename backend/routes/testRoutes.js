@@ -13,7 +13,9 @@ import {
   runCodeInteractive,
   generateAIBoilerplates,
   generateAITestCasesController,
-  runCustomCode
+  runCustomCode,
+  logViolation,
+  saveProctoringScreenshot
 } from "../controllers/testController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { allowRoles } from "../middleware/roleMiddleware.js";
@@ -38,5 +40,9 @@ router.put("/tab-switch/:submissionId", verifyToken, updateTabSwitch);
 router.post("/answer/:submissionId", verifyToken, submitAnswer);
 router.post("/finalize/:submissionId", verifyToken, finalizeSubmission);
 router.get("/results/:submissionId", verifyToken, getSubmissionResults);
+
+// Proctoring Routes
+router.post("/proctoring/violation/:submissionId", verifyToken, logViolation);
+router.post("/proctoring/screenshot/:submissionId", verifyToken, saveProctoringScreenshot);
 
 export default router;

@@ -39,6 +39,7 @@ export default function HRDashboard() {
   const [jobTests, setJobTests] = useState({}); // { jobId: [tests] }
   const [testSubmissions, setTestSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [activeReviewTab, setActiveReviewTab] = useState("answers");
 
   useEffect(() => {
     fetchJobs();
@@ -828,7 +829,7 @@ export default function HRDashboard() {
                                       REJECT
                                     </button>
                                     <button 
-                                      onClick={() => setSelectedSubmission(sub)}
+                                      onClick={() => { setSelectedSubmission(sub); setActiveReviewTab("answers"); }}
                                       className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-705 text-[9px] font-black rounded-lg transition-all active:scale-95"
                                     >
                                       <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -1298,155 +1299,226 @@ export default function HRDashboard() {
                 </div>
               </div>
 
-              {/* Answers Details */}
-              <div className="space-y-6">
-                <h4 className="text-sm font-black uppercase tracking-widest text-indigo-500">Question-by-Question breakdown</h4>
-                
-                {selectedSubmission.answers && selectedSubmission.answers.map((ans, idx) => {
-                  const qDef = selectedSubmission.test_id?.questions?.find(q => q._id === ans.question_id) || {};
-                  const qText = qDef.question || `Question ${idx + 1}`;
-                  const qType = qDef.type || (ans.code ? 'code' : 'theory');
-
-                  return (
-                    <div key={idx} className="p-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl space-y-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] font-black text-gray-500 rounded uppercase tracking-wider mr-2">
-                            {qType}
-                          </span>
-                          <span className="font-bold text-gray-800 dark:text-white">Q{idx + 1}: {qText}</span>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-xs font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">
-                            Score: {ans.score} pts
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* MCQ answer display */}
-                      {qType === 'mcq' && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm">
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Submitted Answer</p>
-                          <p className={`font-bold ${ans.is_correct ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {ans.answer || "No answer submitted"}
-                          </p>
-                          {!ans.is_correct && qDef.correct_answer && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              Correct Answer: <span className="font-bold text-emerald-600">{qDef.correct_answer}</span>
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Theory answer display */}
-                      {qType === 'theory' && (
-                        <div className="space-y-3">
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm font-medium leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Submitted Answer</p>
-                            {ans.answer || "No answer submitted"}
-                          </div>
-                          {ans.feedback && (
-                            <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-xs">
-                              <p className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider mb-1">AI Feedback</p>
-                              <p className="text-purple-800 dark:text-purple-300 font-medium">{ans.feedback}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* Code answer display */}
-                      {qType === 'code' && (
-                        <div className="space-y-3">
-                          <div>
-                            <div className="flex justify-between items-center bg-gray-855 dark:bg-gray-800 text-gray-400 px-4 py-2 rounded-t-2xl text-[10px] font-bold uppercase">
-                              <span>Language: {ans.language || "javascript"}</span>
-                              <span className={ans.is_correct ? "text-emerald-400" : "text-rose-400"}>
-                                {ans.is_correct ? "PERFECT VERDICT" : "FAILED VERDICT"}
-                              </span>
-                            </div>
-                            <pre className="p-4 bg-gray-955 dark:bg-gray-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-2xl border-x border-b border-gray-200 dark:border-gray-800 max-h-80 whitespace-pre">
-                              {ans.code || "// No code submitted"}
-                            </pre>
-                          </div>
-                          {ans.feedback && (
-                            <div className={`p-4 rounded-2xl border text-xs ${
-                              ans.is_correct ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 text-amber-800 dark:text-amber-300'
-                            }`}>
-                              <p className="text-[10px] font-black uppercase tracking-wider mb-1">Sandbox Compilation & Test cases feedback</p>
-                              <p className="font-semibold">{ans.feedback}</p>
-                            </div>
-                          )}
-
-                          {/* Test Case Details Breakdown */}
-                          {ans.cases && ans.cases.length > 0 && (
-                            <div className="space-y-2 mt-4">
-                              <p className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Sandbox Test Case Execution Breakdown</p>
-                              <div className="grid grid-cols-1 gap-2">
-                                {ans.cases.map((tc, tcIdx) => {
-                                  let statusColor = "text-red-600 bg-red-50 border-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30";
-                                  if (tc.status === "Accepted") statusColor = "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30";
-                                  else if (tc.status === "Time Limit Exceeded") statusColor = "text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30";
-                                  else if (tc.status === "Runtime Error") statusColor = "text-pink-600 bg-pink-50 border-pink-100 dark:bg-pink-950/40 dark:text-pink-400 dark:border-pink-900/30";
-                                  else if (tc.status === "Compilation Error") statusColor = "text-gray-600 bg-gray-50 border-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-
-                                  return (
-                                    <div key={tcIdx} className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                                      tc.passed ? "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:border-emerald-200 dark:hover:border-emerald-800" : "bg-rose-50/10 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/30 hover:border-rose-200 dark:hover:border-rose-800"
-                                    }`}>
-                                      <div className="flex flex-wrap items-center gap-3">
-                                        <span className="text-xs font-black text-gray-400">Test {tcIdx + 1}</span>
-                                        
-                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
-                                          {tc.status || (tc.passed ? "Accepted" : "Wrong Answer")}
-                                        </span>
-                                        
-                                        {tc.is_hidden && (
-                                          <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            Hidden
-                                          </span>
-                                        )}
-                                        
-                                        {tc.status !== "Compilation Error" && tc.status !== "Runtime Error" && !tc.error && (
-                                          <div className="text-xs font-mono text-gray-500 flex flex-wrap items-center gap-2">
-                                            <span>Input: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-gray-800 dark:text-gray-300 font-mono">{tc.input}</code></span>
-                                            <span className="text-gray-300 dark:text-gray-700">|</span>
-                                            <span>Expected: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-emerald-700 dark:text-emerald-400 font-mono">{tc.expected}</code></span>
-                                            <span className="text-gray-300 dark:text-gray-700">|</span>
-                                            <span>Actual: <code className={`px-1 rounded font-mono ${tc.passed ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20"}`}>{tc.actual}</code></span>
-                                          </div>
-                                        )}
-
-                                        {(tc.status === "Compilation Error" || tc.status === "Runtime Error" || tc.error) && (
-                                          <div className="text-xs font-mono text-rose-600 dark:text-rose-400 break-all font-bold">
-                                            Error: {tc.error || "Failed to execute"}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="shrink-0 flex items-center">
-                                        {tc.passed ? (
-                                          <span className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
-                                            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                            Passed
-                                          </span>
-                                        ) : (
-                                          <span className="flex items-center gap-1.5 text-xs font-black text-rose-600 dark:text-rose-400">
-                                            <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
-                                            Failed
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* Tabs for Answers vs. Proctoring Report */}
+              <div className="flex border-b border-gray-100 dark:border-gray-800">
+                <button
+                  onClick={() => setActiveReviewTab("answers")}
+                  className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all outline-none bg-transparent cursor-pointer ${
+                    activeReviewTab === "answers"
+                      ? "text-indigo-600 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400 font-extrabold"
+                      : "text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-200"
+                  }`}
+                >
+                  Candidate Answers Review
+                </button>
+                <button
+                  onClick={() => setActiveReviewTab("proctoring")}
+                  className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all outline-none bg-transparent cursor-pointer flex items-center gap-2 ${
+                    activeReviewTab === "proctoring"
+                      ? "text-indigo-600 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400 font-extrabold"
+                      : "text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                  AI Proctoring Logs & Evidence
+                </button>
               </div>
+
+              {activeReviewTab === "answers" ? (
+                <div className="space-y-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-indigo-500">Question-by-Question breakdown</h4>
+                  
+                  {selectedSubmission.answers && selectedSubmission.answers.map((ans, idx) => {
+                    const qDef = selectedSubmission.test_id?.questions?.find(q => q._id === ans.question_id) || {};
+                    const qText = qDef.question || `Question ${idx + 1}`;
+                    const qType = qDef.type || (ans.code ? 'code' : 'theory');
+
+                    return (
+                      <div key={idx} className="p-6 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl space-y-4">
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] font-black text-gray-500 rounded uppercase tracking-wider mr-2">
+                              {qType}
+                            </span>
+                            <span className="font-bold text-gray-800 dark:text-white">Q{idx + 1}: {qText}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-bold text-gray-400 block uppercase">Points weight</span>
+                            <span className="text-sm font-black text-gray-850 dark:text-gray-250">{qDef.points || 1} Points</span>
+                          </div>
+                        </div>
+
+                        {/* MCQ answer display */}
+                        {qType === 'mcq' && (
+                          <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-2">Options</p>
+                            <div className="grid grid-cols-1 gap-2">
+                              {qDef.options && qDef.options.map((opt, oIdx) => {
+                                const isCorrectOpt = opt === qDef.correct_answer;
+                                const isChosenOpt = opt === ans.answer;
+                                return (
+                                  <div 
+                                    key={oIdx} 
+                                    className={`p-3 rounded-xl border text-xs font-semibold flex justify-between items-center ${
+                                      isCorrectOpt ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300' :
+                                      isChosenOpt ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30 text-rose-800 dark:text-rose-300' :
+                                      'bg-white dark:bg-gray-850 border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400'
+                                    }`}
+                                  >
+                                    <span>{opt}</span>
+                                    {isCorrectOpt && <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Correct Solution</span>}
+                                    {!isCorrectOpt && isChosenOpt && <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Chosen Answer</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Theory answer display */}
+                        {qType === 'theory' && (
+                          <div className="space-y-3">
+                            <div className="p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-2">Submitted Explanation</p>
+                              <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed font-semibold whitespace-pre-wrap">{ans.answer || "No response provided"}</p>
+                            </div>
+                            {ans.feedback && (
+                              <div className="p-4 bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-2xl text-xs">
+                                <p className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider mb-1">AI Feedback</p>
+                                <p className="text-purple-800 dark:text-purple-300 font-medium">{ans.feedback}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Code answer display */}
+                        {qType === 'code' && (
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex justify-between items-center bg-gray-855 dark:bg-gray-800 text-gray-400 px-4 py-2 rounded-t-2xl text-[10px] font-bold uppercase">
+                                <span>Language: {ans.language || "javascript"}</span>
+                                <span className={ans.is_correct ? "text-emerald-400" : "text-rose-400"}>
+                                  {ans.is_correct ? "PERFECT VERDICT" : "FAILED VERDICT"}
+                                </span>
+                              </div>
+                              <pre className="p-4 bg-gray-955 dark:bg-gray-950 text-emerald-400 font-mono text-xs overflow-x-auto rounded-b-2xl border-x border-b border-gray-200 dark:border-gray-800 max-h-80 whitespace-pre">
+                                {ans.code || "// No code submitted"}
+                              </pre>
+                            </div>
+                            {ans.feedback && (
+                              <div className={`p-4 rounded-2xl border text-xs ${
+                                ans.is_correct ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 text-amber-800 dark:text-amber-300'
+                              }`}>
+                                <p className="text-[10px] font-black uppercase tracking-wider mb-1">Sandbox Compilation & Test cases feedback</p>
+                                <p className="font-semibold">{ans.feedback}</p>
+                              </div>
+                            )}
+
+                            {/* Test Case Details Breakdown */}
+                            {ans.cases && ans.cases.length > 0 && (
+                              <div className="space-y-2 mt-4">
+                                <p className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Sandbox Test Case Execution Breakdown</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                  {ans.cases.map((tc, tcIdx) => {
+                                    let statusColor = "text-red-600 bg-red-50 border-red-100 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/30";
+                                    if (tc.status === "Accepted") statusColor = "text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30";
+                                    else if (tc.status === "Compilation Error") statusColor = "text-slate-600 bg-slate-50 border-slate-100 dark:bg-slate-950/40 dark:text-slate-400 dark:border-slate-900/30";
+                                    else if (tc.status === "Runtime Error") statusColor = "text-rose-600 bg-rose-50 border-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/30";
+
+                                    return (
+                                      <div key={tcIdx} className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 ${
+                                        tc.passed ? "bg-emerald-50/10 dark:bg-emerald-950/5 border-emerald-100/50 dark:border-emerald-900/10" : "bg-red-50/10 dark:bg-red-950/5 border-red-100/50 dark:border-red-900/10"
+                                      }`}>
+                                        <div className="font-mono text-[11px] space-y-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-gray-400">Case {tcIdx + 1}:</span>
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${statusColor}`}>
+                                              {tc.status || (tc.passed ? "Accepted" : "Wrong Answer")}
+                                            </span>
+                                            {tc.is_hidden && <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200">Hidden Case</span>}
+                                          </div>
+                                          {tc.status === "Compilation Error" || tc.status === "Runtime Error" || tc.error ? (
+                                            <div className="text-red-500 break-all font-semibold mt-1">Error: {tc.error || "Execution failed"}</div>
+                                          ) : (
+                                            <div className="flex flex-wrap items-center gap-x-3 text-gray-500 dark:text-gray-400 mt-1">
+                                              <span>In: <code className="text-gray-700 dark:text-gray-300 font-bold">{tc.input}</code></span>
+                                              <span>|</span>
+                                              <span>Exp: <code className="text-gray-700 dark:text-gray-300 font-bold">{tc.expected}</code></span>
+                                              <span>|</span>
+                                              <span>Got: <code className={tc.passed ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{tc.actual}</code></span>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="shrink-0 flex items-center">
+                                          {tc.passed ? (
+                                            <span className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-600">
+                                              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                              Passed
+                                            </span>
+                                          ) : (
+                                            <span className="flex items-center gap-1 text-[10px] font-black uppercase text-rose-600">
+                                              <svg className="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                                              Failed
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-indigo-500">Proctoring Timeline & Violation Logs</h4>
+                  
+                  {selectedSubmission.proctoring_violations && selectedSubmission.proctoring_violations.length > 0 ? (
+                    <div className="space-y-4">
+                      {selectedSubmission.proctoring_violations.map((v, i) => (
+                        <div key={i} className="flex gap-4 items-start p-4 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-gray-100 dark:border-gray-800">
+                          <div className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-wider font-mono">
+                            {new Date(v.timestamp).toLocaleTimeString()}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <p className="text-xs font-bold text-gray-800 dark:text-white">{v.violation_type}</p>
+                            <div className="flex gap-3 text-[10px] font-black uppercase text-gray-400">
+                              <span className="text-rose-500">{v.action}</span>
+                            </div>
+                            {v.screenshot_path && (
+                              <div className="mt-2 w-48 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm hover:scale-105 transition-all cursor-pointer">
+                                <img src={`http://localhost:5000${v.screenshot_path}`} alt="Evidence Snapshot" className="w-full h-auto" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 font-medium italic">No violations recorded. Candidate followed all guidelines.</p>
+                  )}
+
+                  {selectedSubmission.proctoring_screenshots && selectedSubmission.proctoring_screenshots.filter(s => s.trigger === "random").length > 0 && (
+                    <div className="space-y-3 pt-6 border-t border-gray-100 dark:border-gray-800">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-indigo-500">Periodic Monitoring Gallery</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {selectedSubmission.proctoring_screenshots.filter(s => s.trigger === "random").map((s, i) => (
+                          <div key={i} className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm flex flex-col bg-gray-50 dark:bg-gray-800/20 p-2">
+                            <img src={`http://localhost:5000${s.screenshot_path}`} alt="Periodic Screen" className="w-full aspect-video object-cover rounded-xl" />
+                            <span className="text-[9px] font-black text-gray-400 mt-1.5 uppercase text-center font-mono">
+                              {new Date(s.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Footer */}

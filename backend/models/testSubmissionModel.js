@@ -24,6 +24,18 @@ const testSubmissionSchema = new mongoose.Schema({
   }],
   tab_switches: { type: Number, default: 0 },
   status: { type: String, enum: ['started', 'submitted', 'cancelled'], default: 'started' },
+  warnings_count: { type: Number, default: 0 },
+  proctoring_violations: [{
+    timestamp: { type: Date, default: Date.now },
+    violation_type: { type: String },
+    screenshot_path: { type: String },
+    action: { type: String }
+  }],
+  proctoring_screenshots: [{
+    timestamp: { type: Date, default: Date.now },
+    screenshot_path: { type: String },
+    trigger: { type: String } // 'random' or 'violation'
+  }],
   total_score: { type: Number, default: 0 },
   max_score: { type: Number, default: 0 },
   started_at: { type: Date, default: Date.now },

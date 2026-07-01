@@ -1,4 +1,6 @@
 import Test from "../models/testModel.js";
+import fs from "fs";
+import path from "path";
 import TestSubmission from "../models/testSubmissionModel.js";
 import Application from "../models/applicationModel.js";
 import User from "../models/userModel.js";
@@ -11,7 +13,7 @@ import { generateAIContent, generateAITestCases } from "../services/boilerplateS
 
 export const createTest = async (req, res) => {
   try {
-    const { job_id, round_number, title, description, duration, start_time, end_time, show_marks, questions } = req.body;
+    const { job_id, round_number, title, description, duration, start_time, end_time, show_marks, questions, proctoring_settings } = req.body;
 
     const existingTest = await Test.findOne({ job_id, round_number });
     if (existingTest) {
@@ -28,6 +30,7 @@ export const createTest = async (req, res) => {
       end_time,
       show_marks,
       questions,
+      proctoring_settings,
       created_by: req.user.id
     });
 
@@ -130,6 +133,7 @@ export const startTest = async (req, res) => {
         title: test.title,
         duration: test.duration,
         show_marks: test.show_marks,
+        proctoring_settings: test.proctoring_settings || {},
         questions: test.questions.map(q => ({
           _id: q._id,
           type: q.type,
@@ -154,19 +158,36 @@ export const startTest = async (req, res) => {
 export const updateTabSwitch = async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const submission = await TestSubmission.findById(submissionId);
+    const submission = await TestSubmission.findById(submissionId).populate('test_id');
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+    const test = submission.test_id;
+    const maxWarnings = test.proctoring_settings?.max_warnings || 3;
     
     submission.tab_switches += 1;
-    if (submission.tab_switches >= 2) {
+    submission.warnings_count += 1;
+
+    const action = (submission.warnings_count >= maxWarnings && test.proctoring_settings?.auto_terminate) 
+      ? "Exam Terminated" 
+      : `Warning ${submission.warnings_count}`;
+
+    submission.proctoring_violations.push({
+      timestamp: new Date(),
+      violation_type: "Tab switching detected",
+      screenshot_path: "",
+      action: action
+    });
+
+    if (submission.warnings_count >= maxWarnings && test.proctoring_settings?.auto_terminate) {
       submission.status = 'cancelled';
       await submission.save();
-      return res.json({ terminated: true, message: "Test terminated due to multiple tab switches" });
+      return res.json({ terminated: true, warnings: submission.warnings_count, message: "Test terminated due to multiple tab switches" });
     }
 
-
     await submission.save();
-    res.json({ tab_switches: submission.tab_switches });
+    res.json({ tab_switches: submission.tab_switches, warnings: submission.warnings_count });
   } catch (error) {
+    console.error("Tab switch update error:", error);
     res.status(500).json({ error: "Update failed" });
   }
 };
@@ -399,9 +420,10 @@ export const runCustomCode = async (req, res) => {
 
     if (evaluation.cases && evaluation.cases.length > 0) {
       const result = evaluation.cases[0];
+      const isSuccess = result.status === "Accepted" || result.status === "Wrong Answer";
       res.json({
         stdout: result.actual,
-        status: result.status,
+        status: isSuccess ? "Success" : result.status,
         error: result.error
       });
     } else {
@@ -410,5 +432,108 @@ export const runCustomCode = async (req, res) => {
   } catch (error) {
     console.error("Run custom code error:", error);
     res.status(500).json({ error: "Code execution failed: " + error.message });
+  }
+};
+
+const saveBase64Image = (base64Data, submissionId, type = "violation") => {
+  try {
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return null;
+    }
+    const buffer = Buffer.from(matches[2], 'base64');
+    const dir = path.join("uploads", "proctoring");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const fileName = `${submissionId}_${type}_${Date.now()}.png`;
+    const filePath = path.join(dir, fileName);
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/proctoring/${fileName}`;
+  } catch (error) {
+    console.error("Error saving base64 image:", error);
+    return null;
+  }
+};
+
+export const logViolation = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { violation_type, screenshot } = req.body;
+
+    const submission = await TestSubmission.findById(submissionId).populate('test_id');
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+    const test = submission.test_id;
+    const maxWarnings = test.proctoring_settings?.max_warnings || 3;
+    const autoTerminate = test.proctoring_settings?.auto_terminate || false;
+
+    let screenshotPath = "";
+    if (screenshot) {
+      screenshotPath = saveBase64Image(screenshot, submissionId, "violation");
+    }
+
+    submission.warnings_count += 1;
+
+    const calculatedAction = (submission.warnings_count >= maxWarnings && autoTerminate)
+      ? "Exam Terminated"
+      : `Warning ${submission.warnings_count}`;
+
+    submission.proctoring_violations.push({
+      timestamp: new Date(),
+      violation_type,
+      screenshot_path: screenshotPath,
+      action: calculatedAction
+    });
+
+    if (screenshotPath) {
+      submission.proctoring_screenshots.push({
+        timestamp: new Date(),
+        screenshot_path: screenshotPath,
+        trigger: "violation"
+      });
+    }
+
+    if (submission.warnings_count >= maxWarnings && autoTerminate) {
+      submission.status = "cancelled";
+    }
+
+    await submission.save();
+    res.json({
+      warnings_count: submission.warnings_count,
+      terminated: submission.status === "cancelled"
+    });
+  } catch (error) {
+    console.error("Error logging violation:", error);
+    res.status(500).json({ error: "Failed to log violation" });
+  }
+};
+
+export const saveProctoringScreenshot = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { screenshot } = req.body;
+
+    const submission = await TestSubmission.findById(submissionId);
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+
+    let screenshotPath = "";
+    if (screenshot) {
+      screenshotPath = saveBase64Image(screenshot, submissionId, "random");
+    }
+
+    if (screenshotPath) {
+      submission.proctoring_screenshots.push({
+        timestamp: new Date(),
+        screenshot_path: screenshotPath,
+        trigger: "random"
+      });
+      await submission.save();
+    }
+
+    res.json({ success: true, path: screenshotPath });
+  } catch (error) {
+    console.error("Error saving periodic screenshot:", error);
+    res.status(500).json({ error: "Failed to save screenshot" });
   }
 };

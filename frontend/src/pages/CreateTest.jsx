@@ -15,6 +15,23 @@ export default function CreateTest() {
     start_time: "",
     end_time: "",
     show_marks: false,
+    proctoring_settings: {
+      camera_monitoring: false,
+      microphone_monitoring: false,
+      detect_multiple_persons: false,
+      detect_mobile_phone: false,
+      detect_electronic_devices: false,
+      face_detection: false,
+      look_away_detection: false,
+      random_screenshot: false,
+      screenshot_on_violation: false,
+      tab_switch_detection: false,
+      full_screen_required: false,
+      copy_paste_disabled: false,
+      right_click_disabled: false,
+      max_warnings: 3,
+      auto_terminate: false
+    },
     questions: []
   });
 
@@ -41,12 +58,13 @@ export default function CreateTest() {
       });
 
       const updatedQuestions = [...testData.questions];
-      updatedQuestions[idx].boilerplates = [
-        { language: "javascript", code: res.data.javascript || "" },
-        { language: "python", code: res.data.python || "" },
-        { language: "java", code: res.data.java || "" },
-        { language: "cpp", code: res.data.cpp || "" }
-      ];
+      const languages = ["javascript", "python", "java", "cpp"];
+      updatedQuestions[idx].boilerplates = languages.map(lang => {
+        if (lang === activeLang && existingBoilerplate && existingBoilerplate.trim()) {
+          return { language: lang, code: existingBoilerplate };
+        }
+        return { language: lang, code: res.data[lang] || "" };
+      });
       setTestData({ ...testData, questions: updatedQuestions });
       alert("AI boilerplates generated successfully for JS, Python, Java, and C++!");
     } catch (err) {
@@ -95,7 +113,7 @@ export default function CreateTest() {
       boilerplates: type === "code" ? [
         { language: "javascript", code: "// Write JavaScript here\nfunction solution(input) {\n  return input;\n}" },
         { language: "python", code: "# Write Python here\ndef solution(input):\n    return input" },
-        { language: "java", code: "// Write Java here\nimport java.util.*;\n\npublic class main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write logic here\n    }\n}" },
+        { language: "java", code: "// Write Java here\nimport java.util.*;\n\nclass Solution {\n    public int maxProfit(int[] prices) {\n        // Write logic here\n        return 0;\n    }\n}\n\npublic class main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String line = sc.nextLine().trim();\n        if (line.startsWith(\"[\")) line = line.substring(1);\n        if (line.endsWith(\"]\")) line = line.substring(0, line.length() - 1);\n        line = line.trim();\n        int[] prices;\n        if (line.isEmpty()) {\n            prices = new int[0];\n        } else {\n            String[] parts = line.split(\"\\\\s*,\\\\s*|\\\\s+\");\n            prices = new int[parts.length];\n            for (int i = 0; i < parts.length; i++) {\n                prices[i] = Integer.parseInt(parts[i].trim());\n            }\n        }\n        Solution sol = new Solution();\n        System.out.println(sol.maxProfit(prices));\n        sc.close();\n    }\n}" },
         { language: "cpp", code: "// Write C++ here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write logic here\n    return 0;\n}" }
       ] : []
     };
@@ -204,6 +222,96 @@ export default function CreateTest() {
             <label htmlFor="show_marks" className="text-sm font-bold text-blue-900">
               Allow candidates to see their marks/results immediately after submission
             </label>
+          </div>
+
+          {/* AI Proctoring Configuration Settings */}
+          <div className="p-6 bg-gray-50 border border-gray-200 rounded-3xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-gray-800 tracking-wide flex items-center gap-2">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+              AI Proctoring & Exam Security Settings
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { key: "camera_monitoring", label: "Enable Camera Monitoring" },
+                { key: "microphone_monitoring", label: "Enable Microphone Monitoring" },
+                { key: "detect_multiple_persons", label: "Detect Multiple Persons" },
+                { key: "detect_mobile_phone", label: "Detect Mobile Phones" },
+                { key: "detect_electronic_devices", label: "Detect Secondary Devices" },
+                { key: "face_detection", label: "Detect Face Missing/Covered" },
+                { key: "look_away_detection", label: "Detect Looking Away (Left/Right)" },
+                { key: "random_screenshot", label: "Random Screenshot Capture" },
+                { key: "screenshot_on_violation", label: "Capture Evidence on Violation" },
+                { key: "tab_switch_detection", label: "Tab Switching Detection" },
+                { key: "full_screen_required", label: "Require Full Screen Mode" },
+                { key: "copy_paste_disabled", label: "Disable Copy/Paste" },
+                { key: "right_click_disabled", label: "Disable Right Click" }
+              ].map((setting) => (
+                <div key={setting.key} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:shadow-sm transition-all">
+                  <input 
+                    type="checkbox" 
+                    id={`proct-${setting.key}`}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    checked={testData.proctoring_settings[setting.key]}
+                    onChange={(e) => {
+                      setTestData({
+                        ...testData,
+                        proctoring_settings: {
+                          ...testData.proctoring_settings,
+                          [setting.key]: e.target.checked
+                        }
+                      });
+                    }}
+                  />
+                  <label htmlFor={`proct-${setting.key}`} className="text-xs font-bold text-gray-700 cursor-pointer">
+                    {setting.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-700 block">Maximum Warnings Allowed</label>
+                <input 
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold"
+                  value={testData.proctoring_settings.max_warnings}
+                  onChange={(e) => {
+                    setTestData({
+                      ...testData,
+                      proctoring_settings: {
+                        ...testData.proctoring_settings,
+                        max_warnings: parseInt(e.target.value, 10) || 3
+                      }
+                    });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 mt-2">
+                <input 
+                  type="checkbox" 
+                  id="auto_terminate"
+                  className="w-5 h-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  checked={testData.proctoring_settings.auto_terminate}
+                  onChange={(e) => {
+                    setTestData({
+                      ...testData,
+                      proctoring_settings: {
+                        ...testData.proctoring_settings,
+                        auto_terminate: e.target.checked
+                      }
+                    });
+                  }}
+                />
+                <label htmlFor="auto_terminate" className="text-xs font-black text-indigo-900 cursor-pointer">
+                  Auto-Terminate Exam After Max Warnings Exceeded
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 

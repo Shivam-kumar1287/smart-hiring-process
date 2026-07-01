@@ -1,9 +1,15 @@
-import request from "supertest";
-import { MongoMemoryServer } from "mongodb-memory-server";
-import mongoose from "mongoose";
-import app from "../../server.js";
-import User from "../../models/userModel.js";
-import bcrypt from "bcryptjs";
+import { jest } from "@jest/globals";
+
+jest.unstable_mockModule("../../utils/mailer.js", () => ({
+  sendMail: jest.fn().mockResolvedValue(true)
+}));
+
+const request = (await import("supertest")).default;
+const { MongoMemoryServer } = await import("mongodb-memory-server");
+const mongoose = (await import("mongoose")).default;
+const app = (await import("../../server.js")).default;
+const User = (await import("../../models/userModel.js")).default;
+const bcrypt = (await import("bcryptjs")).default;
 
 let mongoServer;
 
