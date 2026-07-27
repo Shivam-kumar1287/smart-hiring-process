@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EP Form Week 1 Registration - Smart Job Tracker</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #e0e7ff;
+      --text-main: #1f2937;
+      --text-muted: #4b5563;
+      --bg-main: #f9fafb;
+      --bg-card: #ffffff;
+      --border-color: #e5e7eb;
+      --accent: #06b6d4;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      background-color: var(--bg-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      padding: 50px 60px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      border: 1px border var(--border-color);
+    }
+
+    /* Print styling settings */
+    @media print {
+      body {
+        background-color: #fff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        border-radius: 0;
+        border: none;
+      }
+      .no-print {
+        display: none;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+    }
+
+    header {
+      border-bottom: 2px solid var(--primary-light);
+      padding-bottom: 25px;
+      margin-bottom: 35px;
+    }
+
+    .banner {
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+
+    .banner h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .banner p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      font-weight: 300;
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin-top: 35px;
+      margin-bottom: 15px;
+      font-weight: 700;
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+    }
+
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.2rem;
+      color: var(--text-main);
+      margin-top: 25px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: 15px;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    ul, ol {
+      margin-left: 25px;
+      margin-bottom: 20px;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    /* Table styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 25px 0;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--primary-light);
+      color: #312e81;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fcfdfe;
+    }
+
+    .highlight-cell {
+      font-weight: 600;
+      color: var(--primary);
+      width: 30%;
+    }
+
+    .instructions-box {
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-left: 4px solid #9ca3af;
+    }
+
+    .instructions-box h4 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      color: #374151;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .instructions-box p {
+      font-size: 0.9rem;
+      margin-bottom: 0;
+    }
+
+    .btn-container {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+    }
+
+    .btn-secondary:hover {
+      background-color: #e5e7eb;
+    }
+
+    .team-badge {
+      background-color: var(--primary-light);
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-left: 6px;
+      display: inline-block;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .metadata-item {
+      background-color: #fafafa;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .metadata-item label {
+      display: block;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .metadata-item span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    footer {
+      margin-top: 50px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <div class="no-print instructions-box">
+      <h4>💡 Preparation Instructions</h4>
+      <p>This document is structured to be both a copy-paste template for your Google Form and a formal Project Proposal. 
+         To generate a PDF file for submission, press **Ctrl + P** (or click the button below) and select **"Save as PDF"** or **"Print to PDF"**.</p>
+      <div style="margin-top: 15px;">
+        <button onclick="window.print()" class="btn btn-primary">🖨️ Print / Save to PDF</button>
+      </div>
+    </div>
+
+    <header>
+      <div class="banner">
+        <h1>PROJECT PROPOSAL: SMART JOB TRACKER</h1>
+        <p>Week 1: Project Idea Finalization & Team Registration</p>
+      </div>
+      
+      <div class="metadata-grid">
+        <div class="metadata-item">
+          <label>Course Code & Title</label>
+          <span>22CS-401: Exploratory Project (EP)</span>
+        </div>
+        <div class="metadata-item">
+          <label>Academic Session</label>
+          <span>July – December 2026 (50 Marks)</span>
+        </div>
+        <div class="metadata-item">
+          <label>Project Domain</label>
+          <span>Web & Mobile Applications (with AI/NLP)</span>
+        </div>
+        <div class="metadata-item">
+          <label>Submitted By (Lead)</label>
+          <span>Shivam Kumar (shivam1287.be23@chitkara.edu.in)</span>
+        </div>
+      </div>
+    </header>
+
+    <h2>1. Project Overview & Suitability Evaluation</h2>
+    <p>
+      The <strong>Smart Job Tracker</strong> is highly suitable for the <em>Exploratory Project (EP) 22CS-401</em> curriculum. It represents a production-grade, full-stack application that spans across multiple domains (Web Applications, AI, Databases, and Security). It addresses a real-world problem (hiring inefficiency) with state-of-the-art technologies and robust system architecture. The inclusion of complex components like the Monaco-based online test environment, WebRTC communication modules, and AI parsing engine provides more than sufficient scope to justify a four-member team's individual contributions.
+    </p>
+
+    <h2>2. Google Form Submission Guide</h2>
+    <p>Use the table below to copy values directly into the corresponding fields of the registration Google Form:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Google Form Field</th>
+          <th>Response Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="highlight-cell">Group</td>
+          <td><em>[Select your Group, e.g., G15, G16, G17, or specify in 'Other']</em></td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Name</td>
+          <td>Shivam Kumar</td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">University Roll No (Submitter)</td>
+          <td><em>[Enter your University Roll Number, e.g., 231099XXXX]</em></td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Domain/Field</td>
+          <td><strong>Web & Mobile Application</strong> (with <strong>Artificial Intelligence & Machine Learning</strong> / <strong>NLP & Chatbots</strong> integration)</td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Project Title</td>
+          <td><strong>Smart Job Tracker: AI-Powered Recruitment Management & Online Assessment Platform</strong></td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Tools & Technologies</td>
+          <td>
+            <strong>Frontend:</strong> React 19, Tailwind CSS 4, Axios, Monaco Editor (@monaco-editor/react)<br>
+            <strong>Backend:</strong> Node.js, Express.js, JWT, Multer, pdf-parse<br>
+            <strong>Database:</strong> MongoDB Atlas (NoSQL)<br>
+            <strong>AI:</strong> Groq Cloud SDK (Llama 3.3 - 70b - versatile)<br>
+            <strong>P2P Communication:</strong> WebRTC (audio/video calls)<br>
+            <strong>Testing:</strong> Jest, Postman
+          </td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Name of Team Members</td>
+          <td>
+            1. <strong>Shivam Kumar</strong> <span class="team-badge">Lead</span><br>
+            2. <em>[Enter Team Member 2 Name]</em><br>
+            3. <em>[Enter Team Member 3 Name]</em><br>
+            4. <em>[Enter Team Member 4 Name]</em>
+          </td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Roll No of Team Mates</td>
+          <td>
+            1. <em>[Your Roll Number]</em><br>
+            2. <em>[Enter Member 2 Roll Number]</em><br>
+            3. <em>[Enter Member 3 Roll Number]</em><br>
+            4. <em>[Enter Member 4 Roll Number]</em>
+          </td>
+        </tr>
+        <tr>
+          <td class="highlight-cell">Methodology (3–4 lines)</td>
+          <td>The Smart Job Tracker follows a client-server architecture built on the MERN stack (MongoDB, Express, React, Node.js). It integrates Groq Cloud’s Llama 3.3 LLM for AI-powered resume parsing and ATS scoring via API requests. Online assessments are conducted using a browser-based Monaco editor with backend test-case evaluation and event-driven tab-switch cheating detection. Security is enforced through JSON Web Tokens (JWT) and Role-Based Access Control (RBAC).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="page-break"></div>
+
+    <h2>3. Formal Project Synopsis (Proposal)</h2>
+    
+    <h3>3.1 Problem Definition</h3>
+    <p>
+      Modern hiring processes suffer from significant inefficiencies. Recruiters spend only 6 to 10 seconds reviewing a resume initially, leading to human error and qualified candidates being overlooked. Furthermore, candidates are frequently left without updates on their application status, and recruitment data remains fragmented across email inboxes and spreadsheets.
+    </p>
+
+    <h3>3.2 Solution & Objectives</h3>
+    <p>
+      The Smart Job Tracker resolves these issues by centralizing recruitment operations and automating screening using NLP.
+    </p>
+    <ul>
+      <li><strong>Automate Candidate Screening:</strong> Process resume PDFs using Groq Cloud AI and calculate a matching score based on job description context.</li>
+      <li><strong>Consolidate Hiring Pipeline:</strong> Establish a unified interface for HR to post jobs, update rounds, and track applications.</li>
+      <li><strong>Robust Anti-Cheating Assessment:</strong> Assess coding abilities using a sandboxed browser IDE, tracking unauthorized tab switches automatically.</li>
+      <li><strong>Direct Interview Integration:</strong> Host video calls directly within the app using WebRTC instead of third-party platforms.</li>
+    </ul>
+
+    <h3>3.3 Architecture & Implementation Details</h3>
+    <p>
+      The architecture utilizes a three-tier system layout:
+    </p>
+    <ol>
+      <li><strong>Client Tier (React 19):</strong> Reusable UI elements, state management via React Hooks, routing using <code>react-router-dom</code>, and Tailwind CSS 4 styling.</li>
+      <li><strong>Application Server (Express.js & Node.js):</strong> Defines REST routes mapping user requests to controllers. Employs middleware for verifying JWT tokens and evaluating roles.</li>
+      <li><strong>Database Tier (MongoDB Atlas):</strong> Stores data documents representing users, job posts, applications, meeting signaling states, and test submissions.</li>
+    </ol>
+
+    <h3>3.4 Proposed 20-Week Development Roadmap</h3>
+    <ul>
+      <li><strong>Weeks 1–4:</strong> Project registration, initial requirement mapping, database schema design, and local project environment setup.</li>
+      <li><strong>Weeks 5–8:</strong> Development of authentication flow (JWT signup/signin with verification OTP), profile management, and job CRUD interfaces.</li>
+      <li><strong>Weeks 9–12:</strong> Integrating PDF text extractor and Groq AI Llama 3.3 service to fetch ATS scores and keyword reviews.</li>
+      <li><strong>Weeks 13–16:</strong> Designing test assessment compiler, Monaco editor implementation, tab-switch tracking, and WebRTC meeting rooms.</li>
+      <li><strong>Weeks 17–20:</strong> End-to-end integration, automated PDF offer letter module, Jest test suite execution, bug fixes, deployment, and documentation compilation.</li>
+    </ul>
+
+    <h3>3.5 Individual Roles & Contribution Matrix</h3>
+    <ul>
+      <li><strong>Shivam Kumar (Team Lead & Backend Developer):</strong> Setting up core Express server, database connection schemas, token verification middleware, and Groq Cloud Llama API scoring pipeline.</li>
+      <li><strong>Team Member 2 (Frontend Developer):</strong> UI design, dashboard implementation for recruiter and candidate views, and front-to-back integration via Axios.</li>
+      <li><strong>Team Member 3 (Assessment & Communications Developer):</strong> Monaco Editor setup, code compilation endpoints, WebRTC signaling code, and anti-cheating state mechanics.</li>
+      <li><strong>Team Member 4 (DevOps & Quality Assurance):</strong> Unit testing, continuous integration scripting, deployment to Vercel/Render, and project handbook writing.</li>
+    </ul>
+
+    <footer>
+      <p>© 2026 Chitkara University | Exploratory Project Registration | Department of Computer Science & Engineering</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
